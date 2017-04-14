@@ -21,53 +21,38 @@
 package moa.classifiers.lazy.neighboursearch;
 
 
-import com.yahoo.labs.samoa.instances.Attribute;
 import com.yahoo.labs.samoa.instances.Instance;
-import com.yahoo.labs.samoa.instances.InstanceImpl;
 import com.yahoo.labs.samoa.instances.Instances;
-import moa.core.DoubleVector;
 import moa.core.Utils;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 /**
  * Class implementing cumulative sums of features to the brute force search algorithm for nearest neighbour search as an optimisation for feature selection of feature subsets.
- *
+ * @TODO This class should eventually replace the cumulative linear search class once it has been made sure that it gives the same results
  * @author Lanqin Yuan (fyempathy@gmail.com)
  * @version 01.2016
  */
-public class CumulativeLinearNNSearch
-        implements Serializable
+public class OptimisedCumulativeLinearNNSearch extends CumulativeLinearNNSearch
 {
 
-    /** for serialization. */
-    private static final long serialVersionUID = 12345L;// some random numbers I decided to enter
+    private double[] maxDist;
 
-    protected int[] activeFeatures; // lower index = higher importance
-    protected double[][] featureDistance;
-    protected Instances window;
+    private List<Inst> distanceUpdateList;
+    private List<Inst> searchList;
+    private Instance target;
 
-    protected boolean print = false;
+    private int itterationsLeft = 0;
 
-    protected Inst[] instanceArray;
+    private int numberOfActiveFeatures = -1;
+    private double previousPivotDist = -1;
 
-    protected EuclideanDistance distanceFunction = new EuclideanDistance();
 
-    protected class Inst
-    {
-        double distance = -1;
-        int index = -1;
-        int skipCount = 0;
-        public Inst(int index)
-        {
-            this.index = index;
-        }
-    }
 
-    public CumulativeLinearNNSearch()
+    public OptimisedCumulativeLinearNNSearch()
     {
 
     }
@@ -79,58 +64,69 @@ public class CumulativeLinearNNSearch
      * @param activeFeatureIndices Int array containing the indexes of the ranked features
      * @param upperBound Int containing the upper bound of features currently active (used for hill climbing)
      */
+    @Override
     public void initialiseCumulativeSearch(Instance target, Instances window,  int[] activeFeatureIndices,int upperBound)
     {
+        this.target = target;
         this.window = window;
         distanceFunction.setInstances(window);
         activeFeatures = activeFeatureIndices;
         featureDistance = new double[upperBound][window.numInstances()];
+        numberOfActiveFeatures = upperBound - 1; // - 1 as we want the array index
 
+        // initialise lists
+        instanceArray = new Inst[window.numInstances()];
+        for(int i = 0; i < window.numInstances();i++)
+        {
+            Inst newInst = new Inst(i);
+            instanceArray[i] = newInst;
+            searchList.add(newInst);
+        }
 
-
-
-        /*
         // f = index of index of best feature
+        double[] tempMaxDist = new double[upperBound];
         for (int f = 0; f < upperBound; f++)
         {
+            // maximum distance which can be added on per iteration to the feature's total distance
+            double dist = Math.max(target.valueSparse(f),1 - target.valueSparse(f));
+            tempMaxDist[f] = dist * dist;
+
             for(int i = 0; i < window.numInstances();i++)
             {
                 // we don't take care of the class index here, the active features array is assumed to NEVER contain the class index.
                 // puts squared distance for a feature f between instance i and the target into array.
                 double d = distanceFunction.attributeSqDistance(target,window.instance(i),activeFeatures[f]);//= sqDistance(target,window.instance(i),activeFeatures[f]);
-				
                 featureDistance[f][i] = d;
-
+                instanceArray[i].distance += d;
             }
         }
-        */
 
-        instanceArray = new Inst[window.numInstances()];
-        for(int i = 0; i < window.numInstances();i++)
+        // the maximum distance which can be removed
+        double dist = 0;
+        for (int i = 0;i<tempMaxDist.length;i++)
         {
-            instanceArray[i] = new Inst(i);
+            dist += tempMaxDist[i];
+            maxDist[i] = dist;
         }
+
+
+
     }
 
     /**
      * Sets the number of features to be considered in kNN search.
      * Should be run before kNNSearch is run.
      * initialiseCumulativeSearch should be run before running this method
+     * backward elimination is assumed
      * @param n number of features to consider
      */
+    @Override
     public void setNumberOfActiveFeatures(int n)
     {
 
-        //System.out.println("it " + n);
-        if(print)
-        {
-            System.out.print("asd[ ");
-            for (int fea = 0; fea < n; fea++) {
-                System.out.print(activeFeatures[fea] + ", ");
-            }
-            System.out.print("]\n");
-        }
+        nextIteration();
 
+        /*
         for (int w = 0; w < window.numInstances();w++)
         {
             instanceArray[w].distance = 0;
@@ -138,15 +134,38 @@ public class CumulativeLinearNNSearch
             {
                 //System.out.println("f distance: " + featureDistance[f][w]);
                 instanceArray[w].distance += featureDistance[f][w];
-                /*if( Double.isNaN(instanceDistance[w]))
+            }
+        }*/
+    }
+
+    public boolean nextIteration()
+    {
+        // didnt work as every feature has been explored
+        if(numberOfActiveFeatures == -1)
+            return false;
+
+        for(int i = 0; i < searchList.size();i++)
+        {
+            Inst inst = searchList.get(i);
+            inst.distance -= featureDistance[numberOfActiveFeatures][inst.index];
+        }
+        // list of inst to be searched in this knn search
+        Iterator<Inst> it = distanceUpdateList.iterator();
+        while (it.hasNext())
+        {
+            Inst i = it.next();
+            i.distance -= featureDistance[numberOfActiveFeatures][i.index];
+            if(previousPivotDist != -1)
+            {
+                if (i.distance - itterationsLeft * maxDist[numberOfActiveFeatures] > previousPivotDist)
                 {
-                    System.out.println("SOMETHING SCREWED UP BIG TIME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                    System.out.println("instance distance: "+ w + " dist: " + instanceDistance[w]);
-                    System.out.println("feature distance being added on distance: "+ f + " dist: " + featureDistance[f][w]);
-                    System.out.println("instance values: " + window.instance(w).toString());
-                }*/
+                    distanceUpdateList.remove(i);
+                }
             }
         }
+
+        numberOfActiveFeatures--;
+        return true;
     }
 
 
@@ -157,6 +176,7 @@ public class CumulativeLinearNNSearch
      * @param kNN Number of nearest neighbours
      * @return A Instances of the k nearest neighbours
      */
+    @Override
     public Instances kNNSearch(Instance target,int kNN)
     {
         if(window.numInstances() < kNN)
@@ -166,25 +186,55 @@ public class CumulativeLinearNNSearch
             return window;
         }
 
-        double[] searchArray = new double[instanceArray.length];
-        for(int i = 0; i < instanceArray.length;i++)
+        // list of inst to be searched in this knn search
+        Iterator<Inst> it = distanceUpdateList.iterator();
+        while (it.hasNext())
         {
-            searchArray[i] = instanceArray[i].distance;
-            // System.out.println("i " + i);
-            // System.out.println("index " + searchList.get(i).index);
+            Inst i = it.next();
+            i.skipCount--;
+            if(i.skipCount <= 0)
+            {
+                searchList.add(i);
+                distanceUpdateList.remove(i);
+            }
+
         }
-        int pivot = Utils.kthSmallestValueIndex(searchArray, kNN);
+
 
         Instances neighbours = new Instances(window,1);
-
-        for(int i = 0; i < window.numInstances();i++)
+        // find index of k-th smallest value
+        int pivot = kthSmallestValueIndex(searchList, kNN);
+        Inst pivotInst = searchList.get(pivot);
+        it = searchList.iterator();
+        while (it.hasNext())
         {
-            if(instanceArray[i].distance <= instanceArray[pivot].distance)
+            Inst i = it.next();
+            if(i.distance <= pivotInst.distance)
             {
-                neighbours.add(window.instance(i));
+                neighbours.add(window.instance(i.index));
+            }
+            else
+            {
+                int skip = (int)(Math.ceil(i.distance - pivotInst.distance) - 1);
+                if (skip > 0)
+                {
+                    searchList.remove(i);
+                    i.skipCount = skip;
+                    distanceUpdateList.add(i);
+                }
             }
         }
-        //System.out.println("nei " + neighbours.numInstances());
+
         return neighbours;
+    }
+
+    protected int kthSmallestValueIndex(List<Inst> list, int k)
+    {
+        double[] searchArray = new double[list.size()];
+        for(int i = 0; i < list.size();i++)
+        {
+            searchArray[i] = list.get(i).distance;
+        }
+        return Utils.kthSmallestValueIndex(searchArray,k);
     }
 }

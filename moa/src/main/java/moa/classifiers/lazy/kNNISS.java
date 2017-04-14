@@ -70,6 +70,8 @@ public class kNNISS extends AbstractClassifier
                 "Average Euclidean distance"
         }, 0);
 
+    // kNN optimisation
+    public FlagOption optimiseOption = new FlagOption("optimisekNN", 'o', "Whether or not to enable optimisation for kNN search");
 
 
     public FlagOption hillClimbOption = new FlagOption("hillCilmbing", 'h', "Whether or not to enable adaptive F via hill climbing");
@@ -424,7 +426,7 @@ public class kNNISS extends AbstractClassifier
             default:
                 break;
         }
-        rankingFunction.initialise(featuresCount,accuracyGainWeightOption.getValue(),window.classIndex());
+        rankingFunction.initialise(featuresCount,1,window.classIndex());
     }
 
 
