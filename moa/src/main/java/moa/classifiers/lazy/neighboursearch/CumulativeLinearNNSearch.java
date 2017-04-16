@@ -52,7 +52,7 @@ public class CumulativeLinearNNSearch
 
     private boolean print = false;
 
-    private Inst[] instanceDistance;
+    private Inst[] instanceArray;
 
     protected EuclideanDistance distanceFunction = new EuclideanDistance();
 
@@ -97,7 +97,7 @@ public class CumulativeLinearNNSearch
                 // we don't take care of the class index here, the active features array is assumed to NEVER contain the class index.
                 // puts squared distance for a feature f between instance i and the target into array.
                 double d = distanceFunction.attributeSqDistance(target,window.instance(i),activeFeatures[f]);//= sqDistance(target,window.instance(i),activeFeatures[f]);
-				
+
                 featureDistance[f][i] = d;
 
 
@@ -120,10 +120,10 @@ public class CumulativeLinearNNSearch
         }
 
 
-        instanceDistance = new Inst[window.numInstances()];
+        instanceArray = new Inst[window.numInstances()];
         for(int i = 0; i < window.numInstances();i++)
         {
-            instanceDistance[i] = new Inst(i);
+            instanceArray[i] = new Inst(i);
         }
 
     }
@@ -149,11 +149,11 @@ public class CumulativeLinearNNSearch
 
         for (int w = 0; w < window.numInstances();w++)
         {
-            instanceDistance[w].distance = 0;
+            instanceArray[w].distance = 0;
             for(int f = 0; f < n; f++)
             {
                 //System.out.println("f distance: " + featureDistance[f][w]);
-                instanceDistance[w].distance += featureDistance[f][w];
+                instanceArray[w].distance += featureDistance[f][w];
                 /*if( Double.isNaN(instanceDistance[w]))
                 {
                     System.out.println("SOMETHING SCREWED UP BIG TIME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
@@ -163,49 +163,6 @@ public class CumulativeLinearNNSearch
                 }*/
             }
         }
-    }
-
-
-    /**
-     * Actual knn search
-     * initialise must be called beforehand
-     * @param target Instances to search
-     * @param kNN Number of nearest neighbours
-     * @return A Instances of the k nearest neighbours
-     */
-    public Instances kNNSearchderp(Instance target,int kNN)
-    {
-        if(window.numInstances() < kNN)
-        {
-            //System.out.println("returned window");
-            // less instances in window than k
-            return window;
-        }
-
-        double[] searchArray = new double[instanceDistance.length];
-        for(int i = 0; i < instanceDistance.length;i++)
-        {
-            searchArray[i] = instanceDistance[i].distance;
-            // System.out.println("i " + i);
-            // System.out.println("index " + searchList.get(i).index);
-        }
-
-        // System.out.println(Arrays.toString(searchArray));
-
-        // find index of k-th smallest value
-        int pivot = Utils.kthSmallestValueIndex(searchArray, kNN);
-
-        Instances neighbours = new Instances(window,1);
-
-        for(int i = 0; i < window.numInstances();i++)
-        {
-            if(instanceDistance[i].distance <= instanceDistance[pivot].distance)
-            {
-                neighbours.add(window.instance(i));
-            }
-        }
-        //System.out.println("nei " + neighbours.numInstances());
-        return neighbours;
     }
 
     /**
@@ -226,15 +183,15 @@ public class CumulativeLinearNNSearch
 
         // list of inst to be searched in this knn search
         List<Inst> searchList = new ArrayList<Inst>();
-        for(int i = 0; i < instanceDistance.length; i++)
+        for(int i = 0; i < instanceArray.length; i++)
         {
-            if(instanceDistance[i].skipCount <= 0)
+            if(instanceArray[i].skipCount <= 0)
             {
-                searchList.add(instanceDistance[i]);
+                searchList.add(instanceArray[i]);
             }
             else
             {
-                instanceDistance[i].skipCount--;
+                instanceArray[i].skipCount--;
             }
         }
 
