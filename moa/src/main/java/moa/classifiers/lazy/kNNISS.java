@@ -71,7 +71,7 @@ public class kNNISS extends AbstractClassifier
         }, 0);
 
     // kNN optimisation
-    public FlagOption optimiseOption = new FlagOption("optimisekNN", 'o', "Whether or not to enable optimisation for kNN search");
+    //public FlagOption optimiseOption = new FlagOption("optimisekNN", 'o', "Whether or not to enable optimisation for kNN search");
 
 
     public FlagOption hillClimbOption = new FlagOption("hillCilmbing", 'h', "Whether or not to enable adaptive F via hill climbing");
@@ -201,9 +201,9 @@ public class kNNISS extends AbstractClassifier
                 lowerBound = 0;
                 upperBound =  featuresCount;
             }
+
             // initialise search
-            OptimisedCumulativeLinearNNSearch cumulativeLinearNNSearch;
-            cumulativeLinearNNSearch = new OptimisedCumulativeLinearNNSearch();
+            CumulativeLinearNNSearch cumulativeLinearNNSearch = new CumulativeLinearNNSearch();
             cumulativeLinearNNSearch.initialiseCumulativeSearch(inst, this.window, bestFeatures,upperBound);
 
             // get a vote if there is enough instances in the window

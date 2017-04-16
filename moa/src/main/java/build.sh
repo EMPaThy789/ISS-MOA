@@ -10,9 +10,6 @@ javac -cp  moa.jar moa/classifiers/lazy/neighboursearch/CumulativeLinearNNSearch
 jar -uf  moa.jar moa/classifiers/lazy/neighboursearch/*.class
 rm moa/classifiers/lazy/neighboursearch/*.class
 
-javac -cp  moa.jar moa/classifiers/lazy/neighboursearch/OptimisedCumulativeLinearNNSearch.java
-jar -uf  moa.jar moa/classifiers/lazy/neighboursearch/*.class
-rm moa/classifiers/lazy/neighboursearch/*.class
 
 javac -cp  moa.jar moa/classifiers/lazy/rankingfunctions/*.java
 jar -uf  moa.jar moa/classifiers/lazy/rankingfunctions/*.class
