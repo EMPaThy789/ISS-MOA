@@ -25,6 +25,7 @@ import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 import moa.core.Utils;
 
+import javax.swing.text.html.HTMLDocument;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -43,9 +44,7 @@ public class OptimisedCumulativeLinearNNSearch extends CumulativeLinearNNSearch
 
     private List<Inst> distanceUpdateList;
     private List<Inst> searchList;
-    private Instance target;
 
-    private int itterationsLeft = 0;
 
     private int numberOfActiveFeatures = -1;
     private double previousPivotDist = -1;
@@ -67,12 +66,15 @@ public class OptimisedCumulativeLinearNNSearch extends CumulativeLinearNNSearch
     @Override
     public void initialiseCumulativeSearch(Instance target, Instances window,  int[] activeFeatureIndices,int upperBound)
     {
-        this.target = target;
         this.window = window;
         distanceFunction.setInstances(window);
         activeFeatures = activeFeatureIndices;
         featureDistance = new double[upperBound][window.numInstances()];
         numberOfActiveFeatures = upperBound - 1; // - 1 as we want the array index
+
+        maxDist = new double[upperBound];
+        distanceUpdateList = new ArrayList<>();
+        searchList = new ArrayList<>();
 
         // initialise lists
         instanceArray = new Inst[window.numInstances()];
@@ -123,8 +125,8 @@ public class OptimisedCumulativeLinearNNSearch extends CumulativeLinearNNSearch
     @Override
     public void setNumberOfActiveFeatures(int n)
     {
-
-        nextIteration();
+        if(n != maxDist.length)
+            nextIteration();
 
         /*
         for (int w = 0; w < window.numInstances();w++)
@@ -140,27 +142,40 @@ public class OptimisedCumulativeLinearNNSearch extends CumulativeLinearNNSearch
 
     public boolean nextIteration()
     {
-        // didnt work as every feature has been explored
+        // didn't work as every feature has been explored
         if(numberOfActiveFeatures == -1)
             return false;
 
-        for(int i = 0; i < searchList.size();i++)
-        {
-            Inst inst = searchList.get(i);
-            inst.distance -= featureDistance[numberOfActiveFeatures][inst.index];
-        }
-        // list of inst to be searched in this knn search
-        Iterator<Inst> it = distanceUpdateList.iterator();
+        Iterator<Inst> it = searchList.iterator();
         while (it.hasNext())
         {
             Inst i = it.next();
             i.distance -= featureDistance[numberOfActiveFeatures][i.index];
+        }
+
+        // list of inst to be searched in this knn search
+        it = distanceUpdateList.iterator();
+        while (it.hasNext())
+        {
+            Inst i = it.next();
+
+
+            i.distance -= featureDistance[numberOfActiveFeatures][i.index];
             if(previousPivotDist != -1)
             {
-                if (i.distance - itterationsLeft * maxDist[numberOfActiveFeatures] > previousPivotDist)
+                if (i.distance - maxDist[numberOfActiveFeatures] > previousPivotDist)
                 {
-                    distanceUpdateList.remove(i);
+                    // no longer need to update the instance
+                    it.remove();
+                    continue;
                 }
+            }
+
+            i.skipCount--;
+            if(i.skipCount <= 0)
+            {
+                searchList.add(i);
+                it.remove();
             }
         }
 
@@ -186,26 +201,13 @@ public class OptimisedCumulativeLinearNNSearch extends CumulativeLinearNNSearch
             return window;
         }
 
-        // list of inst to be searched in this knn search
-        Iterator<Inst> it = distanceUpdateList.iterator();
-        while (it.hasNext())
-        {
-            Inst i = it.next();
-            i.skipCount--;
-            if(i.skipCount <= 0)
-            {
-                searchList.add(i);
-                distanceUpdateList.remove(i);
-            }
-
-        }
-
-
         Instances neighbours = new Instances(window,1);
         // find index of k-th smallest value
         int pivot = kthSmallestValueIndex(searchList, kNN);
         Inst pivotInst = searchList.get(pivot);
-        it = searchList.iterator();
+        previousPivotDist = pivotInst.distance;
+
+        Iterator<Inst> it = searchList.iterator();
         while (it.hasNext())
         {
             Inst i = it.next();
@@ -215,16 +217,15 @@ public class OptimisedCumulativeLinearNNSearch extends CumulativeLinearNNSearch
             }
             else
             {
-                int skip = (int)(Math.ceil(i.distance - pivotInst.distance) - 1);
+                int skip = (int)(Math.ceil(i.distance - pivotInst.distance));
                 if (skip > 0)
                 {
-                    searchList.remove(i);
-                    i.skipCount = skip;
                     distanceUpdateList.add(i);
+                    i.skipCount = skip;
+                    it.remove();
                 }
             }
         }
-
         return neighbours;
     }
 

@@ -202,7 +202,8 @@ public class kNNISS extends AbstractClassifier
                 upperBound =  featuresCount;
             }
             // initialise search
-            CumulativeLinearNNSearch cumulativeLinearNNSearch = new CumulativeLinearNNSearch();
+            OptimisedCumulativeLinearNNSearch cumulativeLinearNNSearch;
+            cumulativeLinearNNSearch = new OptimisedCumulativeLinearNNSearch();
             cumulativeLinearNNSearch.initialiseCumulativeSearch(inst, this.window, bestFeatures,upperBound);
 
             // get a vote if there is enough instances in the window
