@@ -245,12 +245,12 @@ public class kNNISS extends AbstractClassifier
                     }
                 }
 
+
                 // calculate accuracy for selection of best subset
                 for(int i = 0; i < correctPercent.length;i++)
                 {
                     correctPercent[i] = (double)correctCount[i]/(double)(wrongCount[i] + correctCount[i]);
                 }
-
                 // update best subset based on new accuracy values
                 bestSubset = Utils.maxIndex(correctPercent);
             }
@@ -372,6 +372,7 @@ public class kNNISS extends AbstractClassifier
                     e.printStackTrace();
                 }
             }
+
 
             // set best features
             bestFeatures = rankingFunction.rankFeatures(window, accuracyArray,bestFeatures);

@@ -111,6 +111,7 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
         {
             NumericFeatureStats s = (NumericFeatureStats)attributeTableMap.get(a);
             // [bins][classes]
+
             int[][] counts = s.piD.generateContingencyTable();
 
             //double[][] countsd = piD.generateContingencyTableDouble();
