@@ -58,9 +58,10 @@ public class NaiveBayesISS extends AbstractClassifier
     private static final long serialVersionUID = 1L;
 
     public IntOption featureLimitOption = new IntOption( "featureLimit", 'f', "The number of best features to select subsets from.", -1, -1, Integer.MAX_VALUE);
-    public IntOption reselectionInterval = new IntOption( "reselectionInterval", 't', "The interval between when features are re-ranked.", 1000, 1, Integer.MAX_VALUE);
-    public IntOption rankingWindowSize = new IntOption( "rankingWindowSize", 'w', "The size of the window used for ranking.", 1000, 1, Integer.MAX_VALUE);
-    public FloatOption decayFactorOption = new FloatOption("decayFactor", 'd', "The threshold value.", 0.1, 0.0, 1.0);
+    public IntOption reselectionIntervalOption = new IntOption( "reselectionInterval", 't', "The interval between when features are re-ranked.", 1000, 1, Integer.MAX_VALUE);
+    public IntOption rankingWindowSizeOption = new IntOption( "rankingWindowSize", 'w', "The size of the window used for ranking.", 1000, 1, Integer.MAX_VALUE);
+    public IntOption decayIntervalOption = new IntOption("decayInterval", 'v', "The interval at which decay of counts happen.", 1000, 1, Integer.MAX_VALUE);
+    public FloatOption decayFactorOption = new FloatOption("decayFactor", 'd', "The value of which to decay accuracy and total counts by.", 0.1, 0.0, 1.0);
     public MultiChoiceOption rankingOption = new MultiChoiceOption(
             "ranking", 'm', "ranking method to use", new String[]{
             "SU","InfoGain","MeanDistance"},
@@ -92,6 +93,7 @@ public class NaiveBayesISS extends AbstractClassifier
     protected int bestSubset = -1;
     //;protected int featuresCount = 0;
     protected int reselectionCounter = 0;
+    protected int decayCounter = 0;
     protected boolean initialised = false;
 
     protected int[] subsetClassPredictions;
@@ -171,13 +173,6 @@ public class NaiveBayesISS extends AbstractClassifier
      */
     protected void selectFeatureSubset()
     {
-        // decay counts based on option
-        double decayFactor = decayFactorOption.getValue();
-        for (int i = 0;i < rankedFeatureCount; i++)
-        {
-            correctCount[i] *= (1-decayFactor);
-            wrongCount[i] *= (1-decayFactor);
-        }
 
         // calculate accuracy gain from adding feature to subset
         // utilise accuracy difference by adding features to subset
@@ -315,7 +310,7 @@ public class NaiveBayesISS extends AbstractClassifier
         {
 
             // if window is full, delete last element in window
-            if (this.rankingWindowSize.getValue() <= this.rankingWindow.numInstances())
+            if (this.rankingWindowSizeOption.getValue() <= this.rankingWindow.numInstances())
             {
                 this.rankingWindow.delete(0);
                 rankingFunction.removeInstance(this.rankingWindow.get(0));
@@ -361,22 +356,36 @@ public class NaiveBayesISS extends AbstractClassifier
         {
             initialiseFeatureSubsets(featureLimitOption.getValue());
             initialiseRankingFunction();
-            reselectionCounter = reselectionInterval.getValue();
+            reselectionCounter = reselectionIntervalOption.getValue();
+            decayCounter = decayIntervalOption.getValue();
+
             // add first instance to ranking function
             initialised = true;
         }
         else
         {
-            // check if enough time as passed
+            // check if enough time as passed for re-ranking
             if(reselectionCounter <=0)
             {
                 // get a new ranked list of features
                 selectFeatureSubset();
-                reselectionCounter = reselectionInterval.getValue();
+                reselectionCounter = reselectionIntervalOption.getValue();
             }
             else
             {
                 reselectionCounter--;
+            }
+
+            // check if enough time as passed decay
+            if(decayCounter <=0)
+            {
+                // get a new ranked list of features
+                decayCounts();
+                decayCounter = decayIntervalOption.getValue();
+            }
+            else
+            {
+                decayCounter--;
             }
         }
 
@@ -387,6 +396,17 @@ public class NaiveBayesISS extends AbstractClassifier
         //System.out.println(Arrays.toString(finalPrediction));
         // TODO check here
         return finalPrediction;
+    }
+
+    protected void decayCounts()
+    {
+        // decay counts based on option
+        double decayFactor = decayFactorOption.getValue();
+        for (int i = 0;i < rankedFeatureCount; i++)
+        {
+            correctCount[i] *= (1-decayFactor);
+            wrongCount[i] *= (1-decayFactor);
+        }
     }
 
     @Override

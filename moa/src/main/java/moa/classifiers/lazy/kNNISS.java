@@ -53,12 +53,13 @@ public class kNNISS extends AbstractClassifier
 
 	public IntOption limitOption = new IntOption( "limit", 'w', "The maximum number of instances to store", 1000, 1, Integer.MAX_VALUE);
 
-    public IntOption featureLimitOption = new IntOption( "featureLimit", 'f', "The number of best features to select subsets from from", 10, 1, Integer.MAX_VALUE);
-    public IntOption reselectionInterval = new IntOption( "reselectionInterval", 't', "The interval between when features are re-ranked", 1000, 1, Integer.MAX_VALUE);
+    public IntOption featureLimitOption = new IntOption( "featureLimit", 'f', "The number of best features to select subsets from from. -1 means all features in stream.", -1, -1, Integer.MAX_VALUE);
+    public IntOption reselectionIntervalOption = new IntOption( "reselectionInterval", 't', "The interval between when features are re-ranked", 1000, 1, Integer.MAX_VALUE);
+    public IntOption decayIntervalOption = new IntOption("decayInterval", 'v', "The interval at which decay of counts happen.", 1000, 1, Integer.MAX_VALUE);
 
 
-    public FloatOption decayFactorOption = new FloatOption("decayFactor", 'd', "The threshold value.", 0.1, 0.0, 1.0);
-    public FloatOption accuracyGainWeightOption = new FloatOption("accuracyGainFactor", 'g', "How much weight to put into accuracy gain for ranking features.", 0.0, 0.0, 1.0);
+    public FloatOption decayFactorOption = new FloatOption("decayFactor", 'd', "The value of which to decay accuracy and total counts by.", 0.1, 0.0, 1.0);
+    // public FloatOption accuracyGainWeightOption = new FloatOption("accuracyGainFactor", 'g', "How much weight to put into accuracy gain for ranking features.", 0.0, 0.0, 1.0);
 
     public MultiChoiceOption rankingOption = new MultiChoiceOption(
         "ranking", 'm', "ranking method to use", new String[]{
@@ -93,6 +94,7 @@ public class kNNISS extends AbstractClassifier
     protected int featuresCount = 0;
 
     protected int reselectionCounter = 0;
+    protected int decayCounter = 0;
     protected int C = 0;
     protected boolean initialised = false;
 
@@ -176,12 +178,32 @@ public class kNNISS extends AbstractClassifier
         {
             // get a new ranked list of features
             selectFeatureSubset(featureLimitOption.getValue());
-            reselectionCounter = reselectionInterval.getValue();
+            reselectionCounter = reselectionIntervalOption.getValue();
         }
         else
         {
             reselectionCounter--;
         }
+
+
+        // check if enough time as passed for decay
+        if(decayCounter <=0)
+        {
+            // decay counts based on option
+            double decayFactor = decayFactorOption.getValue();
+            for (int i = 0;i < featuresCount; i++)
+            {
+                correctCount[i] *= (1-decayFactor);
+                wrongCount[i] *= (1-decayFactor);
+            }
+            decayCounter = decayIntervalOption.getValue();
+        }
+        else
+        {
+            decayCounter--;
+        }
+
+
 
 		try
         {
@@ -277,7 +299,8 @@ public class kNNISS extends AbstractClassifier
             // might be bug if first instance is missing attributes TODO check
             // check if there is actually enough features
             // if there is less features overall than F (limit specified)
-            if(f >= window.numAttributes())
+            // f = -1 is wildcard which selects all features
+            if(f >= window.numAttributes() || f == -1)
             {
                 featuresCount = window.numAttributes() - 1; // -1 as the class attribute should not be included
                 if(featuresCount < 0)
@@ -338,13 +361,6 @@ public class kNNISS extends AbstractClassifier
         }
         else // if already initilised
         {
-            // decay counts based on option
-            double decayFactor = decayFactorOption.getValue();
-            for (int i = 0;i < featuresCount; i++)
-            {
-                correctCount[i] *= (1-decayFactor);
-                wrongCount[i] *= (1-decayFactor);
-            }
 
             // calculate accuracy gain from adding feature to subset
             // utilise accuracy difference by adding features to subset
