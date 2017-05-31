@@ -116,18 +116,18 @@ public class ISSExperiments {
 
         for(int rankingOptionI = 0; rankingOptionI < 3; rankingOptionI++)
         {
-            for (int windowSizeI = 0; windowSizeI < 5; windowSizeI++)
+            for (int windowSizeI = 1; windowSizeI <= 3; windowSizeI++)
             {
-                for (int reselectionI = 0; reselectionI < 10; reselectionI++)
+                for (int reselectionI = 1; reselectionI <= 3; reselectionI++)
                 {
-                    for (int decayIntervalI = 0; decayIntervalI < 10; decayIntervalI++)
+                    for (int decayIntervalI = 1; decayIntervalI <= 3; decayIntervalI++)
                     {
-                        for (int decayI = 0; decayI < 10; decayI++)
+                        for (int decayI = 1; decayI < 8; decayI++)
                         {
                             NaiveBayesISS nbISS = new NaiveBayesISS();
-                            double decay = (double) (decayI) * 0.05;
-                            int decayInterval = 500 * decayIntervalI;
-                            int reselectionInterval = 500 * reselectionI;
+                            double decay = (double) (decayI) * 0.025;
+                            int decayInterval = 1000 * decayIntervalI;
+                            int reselectionInterval = 1000 * reselectionI;
                             int windowSize = 500 * windowSizeI;
                             String rankingFunc = "SU";
 
