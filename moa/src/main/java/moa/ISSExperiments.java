@@ -113,8 +113,69 @@ public class ISSExperiments {
     {
         HashMap<String, Classifier> classifiers = new HashMap<>();
         classifiers.put("NB", new NaiveBayes());
-
+        //int rankingOptionI = 0
         for(int rankingOptionI = 0; rankingOptionI < 3; rankingOptionI++)
+        {
+
+            for (int windowSizeI = 1; windowSizeI <= 3; windowSizeI++)
+            {
+
+                for (int reselectionI = 1; reselectionI <= 3; reselectionI++)
+                {
+                    NaiveBayesISS nbISS = new NaiveBayesISS();
+                    int reselectionInterval = 1000 * reselectionI;
+                    int windowSize = 500 * windowSizeI;
+                    nbISS.rankingWindowSizeOption.setValue(windowSize);
+                    nbISS.reselectionIntervalOption.setValue(reselectionInterval);
+                    nbISS.rankingOption.setChosenIndex(rankingOptionI);
+                    String rankingFunc = "SU";
+
+                    if (rankingOptionI == 1)
+                    {
+                        rankingFunc = "IG";
+                    }
+                    if (rankingOptionI == 2)
+                    {
+                        rankingFunc = "AED";
+                    }
+                    classifiers.put("NB-ISS-" + rankingFunc + " (window: " + nbISS.rankingWindowSizeOption.getValue() + " reselectionInterval:  " + nbISS.reselectionIntervalOption.getValue() + " decay: " + nbISS.decayFactorOption.getValue() + " decayInterval: " + nbISS.decayIntervalOption.getValue(), nbISS);
+                }
+            }
+
+            for (int decayIntervalI = 1; decayIntervalI <= 3; decayIntervalI++) {
+                for (int decayI = 1; decayI < 4; decayI++)
+                {
+
+                    NaiveBayesISS nbISS = new NaiveBayesISS();
+                    double decay = (double) (decayI) * 0.05;
+                    int decayInterval = 1000 * decayIntervalI;
+                    nbISS.decayFactorOption.setValue(decay);
+                    nbISS.decayIntervalOption.setValue(decayInterval);
+                    nbISS.rankingOption.setChosenIndex(rankingOptionI);
+                    String rankingFunc = "SU";
+
+                    if (rankingOptionI == 1)
+                    {
+                        rankingFunc = "IG";
+                    }
+                    if (rankingOptionI == 2)
+                    {
+                        rankingFunc = "AED";
+                    }
+                    classifiers.put("NB-ISS-" + rankingFunc + " (window: " + nbISS.rankingWindowSizeOption.getValue() + " reselectionInterval:  " + nbISS.reselectionIntervalOption.getValue() + " decay: " + nbISS.decayFactorOption.getValue() + " decayInterval: " + nbISS.decayIntervalOption.getValue(), nbISS);
+
+                }
+            }
+        }
+        return classifiers;
+    }
+
+    private static HashMap<String, Classifier> instantiatekNNHC()
+    {
+        HashMap<String, Classifier> classifiers = new HashMap<>();
+        classifiers.put("KNN", new kNN());
+        int rankingOptionI = 0
+        //for(int rankingOptionI = 0; rankingOptionI < 3; rankingOptionI++)
         {
             for (int windowSizeI = 1; windowSizeI <= 3; windowSizeI++)
             {
@@ -124,55 +185,7 @@ public class ISSExperiments {
                     {
                         for (int decayI = 1; decayI < 8; decayI++)
                         {
-                            NaiveBayesISS nbISS = new NaiveBayesISS();
-                            double decay = (double) (decayI) * 0.025;
-                            int decayInterval = 1000 * decayIntervalI;
-                            int reselectionInterval = 1000 * reselectionI;
-                            int windowSize = 500 * windowSizeI;
-                            String rankingFunc = "SU";
-
-                            nbISS.decayFactorOption.setValue(decay);
-                            nbISS.decayIntervalOption.setValue(decayInterval);
-                            nbISS.rankingWindowSizeOption.setValue(windowSize);
-                            nbISS.reselectionIntervalOption.setValue(reselectionInterval);
-                            nbISS.rankingOption.setChosenIndex(rankingOptionI);
-
-                            if(rankingOptionI == 1)
-                            {
-                                rankingFunc = "IG";
-                            }
-                            if(rankingOptionI == 2)
-                            {
-                                rankingFunc = "AED";
-                            }
-
-                            classifiers.put("NB-ISS-" + rankingFunc + " (window: " + windowSize + " reselectionInterval:  " + reselectionInterval + " decay: " + decay + " decayInterval: " + decayInterval  , nbISS);
-                        }
-                    }
-                }
-            }
-        }
-
-
-        return classifiers;
-    }
-
-    private static HashMap<String, Classifier> instantiatekNNHC()
-    {
-        HashMap<String, Classifier> classifiers = new HashMap<>();
-        classifiers.put("KNN", new kNN());
-
-        for(int rankingOptionI = 0; rankingOptionI < 3; rankingOptionI++)
-        {
-            for (int windowSizeI = 0; windowSizeI < 5; windowSizeI++)
-            {
-                for (int reselectionI = 0; reselectionI < 10; reselectionI++)
-                {
-                    for (int decayIntervalI = 0; decayIntervalI < 10; decayIntervalI++)
-                    {
-                        for (int decayI = 0; decayI < 10; decayI++)
-                        {
-                            for (int hillClimbWindowI = 0; hillClimbWindowI < 5; hillClimbWindowI++)
+                            for (int hillClimbWindowI = 0; hillClimbWindowI < 3; hillClimbWindowI++)
                             {
                                 kNNISS kNNISSClassifier = new kNNISS();
                                 double decay = (double)(decayI) * 0.05;
