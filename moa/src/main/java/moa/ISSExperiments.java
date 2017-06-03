@@ -174,50 +174,63 @@ public class ISSExperiments {
     {
         HashMap<String, Classifier> classifiers = new HashMap<>();
         classifiers.put("KNN", new kNN());
-        int rankingOptionI = 0
+        int rankingOptionI = 0;
         //for(int rankingOptionI = 0; rankingOptionI < 3; rankingOptionI++)
         {
             for (int windowSizeI = 1; windowSizeI <= 3; windowSizeI++)
             {
                 for (int reselectionI = 1; reselectionI <= 3; reselectionI++)
                 {
-                    for (int decayIntervalI = 1; decayIntervalI <= 3; decayIntervalI++)
+                    for (int hillClimbWindowI = 0; hillClimbWindowI < 3; hillClimbWindowI++)
                     {
-                        for (int decayI = 1; decayI < 8; decayI++)
-                        {
-                            for (int hillClimbWindowI = 0; hillClimbWindowI < 3; hillClimbWindowI++)
-                            {
-                                kNNISS kNNISSClassifier = new kNNISS();
-                                double decay = (double)(decayI) * 0.05;
-                                int decayInterval = 500 * decayIntervalI;
-                                int reselectionInterval = 500 * reselectionI;
-                                int windowSize = 500 * windowSizeI;
-                                int hillClimbWindowSize = 2 * (hillClimbWindowI + 1);
-                                String rankingFunc = "SU";
+                        kNNISS kNNISSClassifier = new kNNISS();
+                        int reselectionInterval = 500 * reselectionI;
+                        int windowSize = 500 * windowSizeI;
+                        int hillClimbWindowSize = 2 * (hillClimbWindowI + 1);
+                        String rankingFunc = "SU";
 
 
-                                kNNISSClassifier.hillClimbOption.setValue(true);
+                        kNNISSClassifier.hillClimbOption.setValue(true);
 
-                                kNNISSClassifier.hillClimbWindowOption.setValue(hillClimbWindowSize);
-                                kNNISSClassifier.decayFactorOption.setValue(decay);
-                                kNNISSClassifier.decayIntervalOption.setValue(decayInterval);
-                                kNNISSClassifier.limitOption.setValue(windowSize);
-                                kNNISSClassifier.reselectionIntervalOption.setValue(reselectionInterval);
-                                kNNISSClassifier.rankingOption.setChosenIndex(rankingOptionI);
+                        kNNISSClassifier.hillClimbWindowOption.setValue(hillClimbWindowSize);
+                        kNNISSClassifier.limitOption.setValue(windowSize);
+                        kNNISSClassifier.reselectionIntervalOption.setValue(reselectionInterval);
+                        kNNISSClassifier.rankingOption.setChosenIndex(rankingOptionI);
 
-                                if (rankingOptionI == 1) {
-                                    rankingFunc = "IG";
-                                }
-                                if (rankingOptionI == 2) {
-                                    rankingFunc = "AED";
-                                }
-
-                                classifiers.put("kNN-ISS-HC-" + rankingFunc + " (window: " + windowSize + " reselectionInterval:  " + reselectionInterval + " decay: " + decay + " decayInterval: " + decayInterval + " hillClimbWindow: " + hillClimbWindowSize, kNNISSClassifier);
-                            }
+                        if (rankingOptionI == 1) {
+                            rankingFunc = "IG";
                         }
+                        if (rankingOptionI == 2) {
+                            rankingFunc = "AED";
+                        }
+
+                        classifiers.put("kNN-ISS-HC-" + rankingFunc + " (window: " + kNNISSClassifier.limitOption.getValue() + " reselectionInterval:  " + kNNISSClassifier.reselectionIntervalOption.getValue() + " decay: " + kNNISSClassifier.decayFactorOption.getValue() + " decayInterval: " + kNNISSClassifier.decayIntervalOption.getValue() + " hillClimbWindow: " + kNNISSClassifier.hillClimbWindowOption.getValue(), kNNISSClassifier);
                     }
                 }
             }
+
+            for (int decayIntervalI = 1; decayIntervalI <= 3; decayIntervalI++)
+            {
+                for (int decayI = 1; decayI < 8; decayI++)
+                {
+
+                    kNNISS kNNISSClassifier = new kNNISS();
+                    double decay = (double)(decayI) * 0.05;
+                    int decayInterval = 500 * decayIntervalI;
+                    kNNISSClassifier.decayFactorOption.setValue(decay);
+                    kNNISSClassifier.decayIntervalOption.setValue(decayInterval);
+                    String rankingFunc = "SU";
+                    if (rankingOptionI == 1) {
+                        rankingFunc = "IG";
+                    }
+                    if (rankingOptionI == 2) {
+                        rankingFunc = "AED";
+                    }
+                    classifiers.put("kNN-ISS-HC-" + rankingFunc + " (window: " + kNNISSClassifier.limitOption.getValue() + " reselectionInterval:  " + kNNISSClassifier.reselectionIntervalOption.getValue() + " decay: " + kNNISSClassifier.decayFactorOption.getValue() + " decayInterval: " + kNNISSClassifier.decayIntervalOption.getValue() + " hillClimbWindow: " + kNNISSClassifier.hillClimbWindowOption.getValue(), kNNISSClassifier);
+                }
+            }
+
+
         }
 
 
