@@ -1,0 +1,27 @@
+\chapter{Related Work}
+\label{chapter:RelatedWork}
+\section{Feature selection for batch bata}
+
+Feature selection as a means of preprocessing data for data mining to improve performance has been studied previously. In general, feature selection techniques can be broadly split into three separate categories: filter methods, wrapper methods, and embedded methods \citep{Guyon:2003:IVF:944919.944968}.
+
+\subsection{Filter methods}
+Filter methods evaluate the data individually and independently from a classifier. Methods tend to have low computational complexity which makes them fast and also inexpensive memory wise. Independence from the classifier makes filter methods generally resilient to overfitting but means that the features selected are not optimised for the classifier. Also as the features are evaluated independently from each other, filter methods tend to not consider relationships which exist between the features themselves.
+
+\subsection{Wrapper methods}
+Wrapper methods wrap around specific classifiers and utilise the classifier as a black box to select a subset of features based on the subset's usefulness to the specific classifier. Relationships between features are considered and the classifier is also considered in the feature selection process; however wrapper methods tend to be more expensive in terms of computation time and memory usage compared to the simpler filter methods and also tend to be more prone to overfitting.
+
+\subsection{Embedded methods}
+Embedded methods are like wrapper methods in that they select a subset of features; however unlike wrapper methods, embedded methods are integrated into the construction or learning of the classifier rather than viewing the classifier as a black box. Embedded methods tend to perform with less computational cost than wrapper methods while still considering subsets of features. The trade-off of embedded methods is that methods tend to need to specialise for the classifier and are not modular with other classifiers.
+
+\subsubsection{ESFS}
+The starting point of our new feature selection method was an existing batch feature selection method called ESFS (Embedded Sequential Forward Selection) \citep{ESFS}. ESFS itself is based upon the simple greedy, bottom up wrapper method of SFS (Sequential Forward Selection).
+
+The ESFS method creates an initial ranking of features based on belief mass from Dempster-Shafer theory \citep{dempster1967} and utilises this ranking to cull features below a threshold from the next stage of feature selection. ESFS uses a heuristic search to explore the subset space; starting with individual features as subsets, the method searches through the different combinations of subsets. Subsets are evaluated and culled based on their performance and computational burden according to a user set threshold and re-added into the search as features. This is repeated until all sizes of subsets are covered and a final subset is selected when no more new subsets above the threshold can be created.
+
+As ESFS is proposed for standard batch learning, issues exist which prevents it from working well in a stream setting. Searching for all combinations of subsets of features is a $\mathcal{O}(\min \left(n^k, n^{n-k}\right))$ polynomial problem and despite ESFS's heuristic approach to the computation of subsets, it is still expensive in regards to an algorithm for a stream setting. Computing the belief mass to rank features is also computationally expensive and more importantly requires a distinctly separate training and test set, which is not straightforwardly achievable in an incremental stream setting due to examples potentially arriving unevenly and the possibility of change within the stream.
+
+\section{Feature selection for stream mining}
+Recent studies have shown promising improvements which can be obtained by applying feature selection to data streams, especially in terms of addressing feature drift \citep{Barddal2016}. Feature drift is defined as when a feature or subset of features emerges or ceases to be relevant to the classification problem in the stream. Feature drift has mostly been an understudied type of drift in data stream mining and has been shown to negatively affect performance in classifiers when they occur \citep{Barddal2015}.
+
+\section{kNN in stream mining}
+For the purposes of our project, we chose to focus on kNN as our classifier to limit the scope of the project. Research has shown kNN to be a robust and high performing method for a wide range of data streams \citep{Read2012}. A beneficial characteristic of the kNN method is its use of a sliding window which in a stream allows it to adapt to drifts and changes which may occur in the data stream, implicitly and passively.

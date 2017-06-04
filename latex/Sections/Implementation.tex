@@ -1,0 +1,211 @@
+\chapter{Implementation}
+\label{chapter:Implementation}
+All implementation of the method was done using Java in MOA \citep{Bifet:2010:MMO:1756006.1859903}. MOA is an open-source framework software specialised for conducting experiments on data streams developed by the University of Waikato.
+
+The new method was implemented as a separate new classifier which performs feature selection, then feeds the selected features to a modified kNN classifier to obtain classification results.
+
+\section{Ranking}
+Ranking functions based on Average Euclidean Distance (AED), Information Gain (IG) and Symmetric Uncertainty (SU) were implemented. Each ranking function takes a bound for the number of features to rank $f$, and a window of examples to perform the ranking for. It returns an array of size 1 to $f$, descendingly sorted with the best ranked feature as the first element.
+
+\subsection{Average Euclidean Distance (AED)}
+Average Euclidean Distance was implemented as a ranking function mainly due to its simple and intuitive nature. The basic idea is that after normalisation, for features which have the most influence on the decision of the class value, the means per class will be on average further apart when plotted in Euclidean space. The calculation of AED is different depending on whether the attribute is nominal or numeric.
+
+\paragraph{Numeric attributes}
+For numeric attributes, the AED calculation is calculated by a summation of all the Euclidean distances between the mean value of the attribute for all combinations of class values. Each attribute value is normalised to a value between 0 and 1, and as a result the Average Euclidean Distance sum of an attribute in a range between 0 and $L$, where $L$ is the number of classes. Normalisation for an attribute $A$ of instance $i$ is defined by the formula:
+
+\begin{equation}
+\operatorname{Normalise}(A_i) = 
+\frac{A_i - \operatorname{min}(A)}
+     {\operatorname{max}(A) - \operatorname{min}(A)}
+\end{equation}
+Where $\operatorname{min}(A)$ is the smallest value of attribute $A$ in the window and $\operatorname{max}(A)$ is the largest value of attribute $A$ in the window.\bigskip
+
+% numeric AED formula
+Formally, for a numeric attribute $A$ in a stream with $L$ number of known classes, its AED can be defined by the formula:\medskip
+\begin{equation}
+\operatorname{Numeric AED}(A) = 
+\sqrt{
+	\sum_{0\leq i<j}^{j<L}
+	\left(
+		\operatorname{MeanValue}(A_i)
+		-
+		\operatorname{MeanValue}(A_j)
+	\right)^2
+}
+\end{equation}
+\begin{equation}
+\operatorname{MeanValue}(A_i) = 
+\frac{\sum_{n=0}^{N_{i}(A)}A_{i n}}
+	 {N_{i}(A)}
+\end{equation}
+Where: \begin{description}
+\item[•]
+$N_{i}(A)$ is the number of times that the class value $i$ appeared in the window with a valid value for attribute $A$.
+\item[•]
+$A_{i n}$ is the value of attribute $A$ for the $n$-th instance with a class value of $i$ and a valid value for attribute $A$.
+\end{description}\medskip
+
+% nominal AED formula
+\paragraph{Nominal attributes}
+For nominal attributes, the distance is calculated based on the average difference between each possible value for the attribute. The idea is that for a nominal attribute that has more deciding power between classes, the attribute will more likely have a different distribution for which value it takes. Essentially, we take a summation of the Euclidean distance between the counts for each possible value between all combinations of classes.\medskip
+
+Formally, the AED formula for a nominal attribute $A$ with $V$ categories in a stream with $L$ number of known classes is defined as follows:
+
+\begin{equation}
+\operatorname{Nominal AED}(A) = 
+\sum_{0\leq i<j}^{j<L}
+\left(
+	\frac{
+		\sum_{v=0}^{V}	
+		\sqrt{
+			\left(
+				\frac{A_{i v}}
+					 {C_{i}(A)}
+			-
+				\frac{A_{j v}}
+					 {C_{j}(A)}
+			\right)^2
+		}
+	}
+	{V}
+\right)
+\end{equation}\\
+
+
+Where: \begin{description}
+\item[•]
+$A_{i v}$ is the number of instances with class value of $i$ and a variable value of $v$ for the attribute $A$.
+\item[•]
+$C_{i}(A)$ is the total number of instances with a class value of $i$ with a valid (non missing) value for the attribute $A$.
+\end{description}\medskip
+
+\subsection{Information Gain (IG)}
+Information Gain, a synonym for Kullback–Leibler divergence \citep{kullback1951} is a measure of the reduction of entropy by the introduction of a variable. The formula used to calculate IG for an attribute $A$ for the class attribute $C$ is as follows:
+
+\begin{equation}
+\operatorname{IG}(C|A) = H(C) - H(C|A)
+\end{equation}\\
+Where $H(X)$ is the entropy for an attribute $X$ with $N$ outcomes as defined by the formula:
+\begin{equation}
+H(X) = \sum_{i=0}^{n} -P(x_{i}) \log_{b} P(x_{i})
+\end{equation}
+
+For the purposes of our implementation, we use a base value of 2 for $b$. As IG is only computable for nominal attributes, we perform discretisation for numeric attributes to convert them to nominal attributes. The discretisation method used in our implementation was PiD \citep{Gama:2006:DDS:1141277.1141429}, a fast single pass discretisation algorithm specialised for data streams.
+
+\subsection{Symmetric Uncertainty (SU)}
+Symmetric Uncertainty is a fitness measure also based on entropy similar to Information Gain, and has been shown to give good performance for feature selection \citep{icml2003_YuL03}. Its main advantage over Information Gain is that it is a normalised form of Mutual Information which overcomes bias (when there is significantly more or less of some class/classes than others) in the data. It is defined as follows:
+
+\begin{equation}
+\operatorname{SU}(X,Y) = \frac{IG(X|Y)}{H(X) + H(Y)}
+\end{equation} 
+
+Like for IG, SU is only computable for nominal attributes; as a result we also perform discretisation via PiD for numeric attributes as with IG.
+
+\section{Subset selection}
+Subset Selection takes the array of ranked features and starts with an empty subset. Features from the list of ranked features are iteratively added to the subset starting with the best ranked feature and the subset is evaluated by the classifier, in this case kNN using Euclidean Distance. This repeats until eventually the subset contains all $f$ ranked features.
+
+Our implementation of kNN takes advantage of several properties of Euclidean distance to conserve resources and improve computation time. Euclidean distance between two $n$ dimensional points $p$ and $q$ is defined by the following equation.
+\begin{equation}
+\operatorname{d}(p,q) = 
+\sqrt{
+	\sum_{i=1}^n
+		\left(
+			q_i - p_i
+		\right)^2
+}
+\end{equation}\\
+
+As kNN only uses the distances for comparison to find the $k$ nearest neighbours, we instead use Squared Euclidean Distance over Euclidean Distance to reduce unnecessary computation by removing the square root operation without affecting the outcome of the kNN search.
+
+\subsubsection{Implementation}
+
+\begin{algorithm}[h]
+    \caption{Static Subset selection}
+    \label{staticSubset}
+    \textbf{Input:} \\ 
+    $h$ Accuracy estimate for each subset size \\ 
+    $f$ Number of ranked features \\ 
+    $b$ Size of previous best subset \\ 
+    $f$ Upper bound of subset size \\ 
+    $r$ List of ranked features \\
+	\textbf{Output:} \\
+	$p$ Classification result \\
+	$b$ Size of new best subset
+    \begin{algorithmic}[1] % The number tells where the line numbering should start
+        \Procedure{SelectSubset}{$f$,$b$}
+            \For{$i$ from $1$ to $f$}
+            	\State Evaluate subset containing top $i$ features in $r$
+            	\State Update $h$
+            	\If{$i$ = $b$}
+          	  		\State $p\gets$ prediction result of evaluation
+            	\EndIf
+            \EndFor
+            \State $b\gets$ index of new best subset
+            \State \textbf{return} $p$, $b$
+        \EndProcedure
+    \end{algorithmic}
+\end{algorithm}
+
+When adding more attributes to the search, we use the cumulative nature of Squared Euclidean Distance to our advantage; as the Squared Euclidean Distance between two points in $n$ dimensional space is equal to the sum of the Squared Euclidean Distance in each dimension individually, we can compute the Squared Euclidean Distances for each feature individually and add them to a sum as we add more features to the subset to give us linear time complexity of $\mathcal{O}(fw)$ for ranking, where $f$ is the number of ranked features and $w$ is the number of instances in sliding window of the kNN search. To implement this, when a new example arrives we store its distance to each example already in the sliding window individually by the ranked attribute in a $f$ by $w$ array. We keep a running sum of each instance individually in a $w$ length array which we use to keep track of the actual distances for the given iteration. Each iteration of kNN search adds to the running sum and uses it to conduct the kNN search itself.
+
+Our implementation of kNN uses the quick select algorithm \citep{Hoare:1961:AF:366622.366647} to find the $k$-th closest distance from the running sums array; we then traverse the array and return all instances which have a distance less than or equal to the $k$-th closest, using the returned examples to conduct a majority vote for the classification result as per the usual kNN algorithm. Quick Select has a best case of  $\mathcal{O}(n)$ which is also its average performance and a worst case of  $\mathcal{O}(kn)$. This method of kNN search was chosen over other methods (such as constructing a heap) as we can easily add more attributes to the search by adding to the previously mentioned sum array. Quick Select can be easily run again over this array meaning we are not required to reconstruct our data structure as we add attributes to the search (which we would have to do with a heap).
+
+We select the best subset based on an accuracy estimate, which is based on a count of the number of correct predictions that a subset has made. We keep a count of the number of correct predictions that each subset has made; the count is incremented when the subset makes a correct classification on the new instance. The counts are tied to the size of the subset rather than the composition similar to the Space Saving Algorithm; doing so allows us to significantly save computation and memory usage as otherwise we would need some sort of mapping function. We also keep a total count of the number of predictions which in conjunction with the subset counts is used to generate the accuracy estimate. The accuracy estimate is a simple fraction in the form of 
+$\frac
+{
+	correct \, predictions
+}
+{
+	total \, predictions
+}$ for a subset. The counts themselves (including the total count) are subject to a decay factor which is conducted on every re-ranking. This factor allows the algorithm to adapt to changes in the stream.
+
+The best subset is initialised to be the first subset and selected for the next iteration. The final class prediction is based on classification made by the best subset, which itself is selected based on the accuracy estimate. Only once we have made this final classification do we add the new instance to the sliding window.
+
+\section{Dynamic subset size selection}
+During experimentation, we encountered some issues with a static $f$ parameter. Despite the ranking function being linearly scaling and new distances being inexpensive to compute, finding the $k$ nearest neighbour is expensive. Quick select has a complexity of $\mathcal{O}(fkw)$ for a worst case and a complexity of $\mathcal{O}(fw)$ for a best/average case. As the kNN algorithm is invoked at least $f$ times for every new examples which arrives, it is potentially too slow if $f$ is set too large with regards to the actual number of relevant features in the stream.
+
+Another issue is the difficulty of selecting a good $f$ parameter without any prior knowledge. In order for the algorithm to cover all possible features which may be relevant a stream with $r$ relevant features, $f$ (the maximum subset size) must be set to be greater than or equal to $r$ in order for the algorithm to not cull relevant features; however, selecting a $f$ too high above $r$ results in a large amount of unneeded computation and can potentially result in the algorithm being slow. 
+
+Streams can also be subject to concept and feature drift over time meaning the number of relevant features in the stream can also increase or decrease, further complicating this problem. Selecting $f$ for a highly fluctuating $r$ in a stream with a large number of features becomes highly problematic; conservatively selecting a large $f$ to cover feature drift wastes computation when $r$ is small and can cause issues for performance, while selecting a $f$ too small is detrimental for accuracy when $r$ is larger than $f$. For a worst case in a stream with $j$ features, where the number of relevant feature in a stream $r$ drifts between 1 and $j$, a static $f$ must be set to $j$ in order to cover all relevant features resulting in $j-1$ unnecessary subset computations for every instance which arrives in the stream during the periods when the stream has an $r$ of 1.
+
+\subsection{Hill climbing}
+To address these problems, we utilised the simple search algorithm of hill climbing to search for the optimal subset size. Hill Climbing is a simple greedy local search algorithm which incrementally and greedily selects the best solution from the current solution. Its main drawback is its tendency to become trapped within local optima. As a result, it is very likely that hill climbing will not find the global optimum if there exist several local optima in the search space.
+
+We make two assumptions on the ranking: First that the ranking function is able to rank relevant features above irrelevant features. Second that adding irrelevant features to the classifier does not on average improve its prediction accuracy. 
+
+Based on these assumptions, we can think of the problem as a search problem for $r$ since the ranking stage should have put all of the $r$ relevant features in the first $r$ features in the ranked list; meaning we only need to identify the size of $r$. Also important to note is that the prediction accuracy should broadly follow one of two patterns as more features are added to the subset from the ranking: Either increasing until all $r$ relevant features are added into the subset, at which the point the global optima is reached and after which irrelevant features cause the prediction accuracy to drop or plateau; or decreasing/plateauing from the start if there was only one relevant feature, meaning the global optima was already achieved in the beginning. These patterns in theory help address the problem of the Hill Climbing algorithm getting stuck in local optimas.
+
+In our experiments, we found that our assumptions do in fact hold most of the time; however we did observe cases where they do not. The aforementioned patterns can be seen to be sometimes different in our experiment results and for certain data streams, there exist small but distinct local optimas such as in the Agrawal, FY A and FY B expriment results. More detailed results for hill climbing are discussed in a later chapter focusing on results (Figure \ref{fig:accuracyDifference}, page \pageref{fig:accuracyDifference}). Despite not always achieving the best case which fulfils all assumptions, experiments where the subset size was dynamically selected via hill climbing still performed at accuracies competitive with static $f$ and always at least the same or better than experiments with no feature selection on the datasets we tested.
+
+\subsubsection{Implementation}
+
+\begin{algorithm}[h]
+    \caption{Hill climbing subset selection}
+    \label{hillclimb}
+    \textbf{Input:} \\ 
+    $h$ Accuracy estimate for each subset size \\ 
+    $a$ Hill climbing window size \\
+    $b$ Size of previous best subset \\ 
+    $f$ Upper bound of subset size \\ 
+    $r$ List of ranked features \\
+	\textbf{Output:} \\
+	$p$ Classification result \\
+	$b$ Size of new best subset
+    \begin{algorithmic}[1] % The number tells where the line numbering should start
+        \Procedure{SelectSubset}{$a$,$b$}
+            \State $l\gets b - a$; $l\geq 1$
+            \State $u\gets b + a$; $u\leq f$
+            \For{$i$ from $l$ to $u$}
+            	\State Evaluate subset containing top $i$ features in $r$
+            	\State Update $h$
+            	\If{$i$ = $b$}
+          	  		\State $p\gets$ prediction result of evaluation
+            	\EndIf
+            \EndFor
+            \State $b\gets$ index of new best subset
+            \State \textbf{return} $p$, $b$
+        \EndProcedure
+    \end{algorithmic}
+\end{algorithm}
+
+Algorithm \ref{hillclimb} shows the pseudo-code for our implementation of hill climb subset selection. Rather than evaluating from a subset size of 1 to a static $f$ on every instance, the algorithm only evaluates between a lower and upper bound which themselves are bound between 1 and $f$. The lower and upper bounds are initialised to 1 and $f$ respectively, meaning we still evaluate all subsets initially. Evaluation of a subset is done in the same way as the static $f$ algorithm and subsequent evaluations after the initial evaluation evaluates only the subsets in the window of $a$ size around the currently known best value for the size of the subset. As the best known subset is recomputed for every new example, the algorithm climbs within the upper and lower bound to select the best subest for the next arriving example. However, this does mean that should a drastic change occur in the stream, hill climbing will in theory take slightly longer to adapt to this change when compared to a static $f$ which covers the entire range of features due to hill climbing being only able to move the window by at most $a$ on every new example.

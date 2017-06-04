@@ -1,0 +1,14 @@
+\chapter{Method}
+\label{chapter:Method}
+
+As previously mentioned, the ESFS method was a starting point for the development of our method. Like ESFS, our proposed method separates the feature selection into two phases; initially ranking the features with some fitness measure to cull out poor features, then searching through subsets of features based on the rankings to attempt to find the best feature subset. We have called our new proposed method iterative subset selection (ISS).
+
+\begin{description}
+\item[Ranking] Each feature is initially considered individually and ranked using some sort of ranking function. Only the top $f$ number of features are considered for the subset selection in the next step, culling the features below $f$ and reducing the search space. Ranking utilises a sliding window and each ranking is completely independent from the previous rankings, meaning we implicitly deal with feature drift as only new instances in the window are utilised. Re-ranking is only done at set intervals to reduce computational load.
+
+\item[Subset selection] A problem with ESFS's subset selection is its heuristic approach to the exploration of subsets, which causes the algorithm to have the potential to exponentially scale with the number of features in the stream. Our proposed algorithm runs a fixed number of iterations for each new instance and runs subset selection incrementally on every new instance to address changes which may occur in the stream.
+
+We start with an empty subset $S$ and iteratively add the next ranked feature (starting with the top ranked feature) to $S$ before evaluating $S$. This means that the top ranked feature is present in all of the subsets, the second ranked in $f-1$ number of subsets and so on. In doing this, we limit the search to a maximum of $f$ iterations, meaning the growth of the number of evaluations is linear to $f$ rather than exponential, and avoiding the potential for a combinatorial explosion. 
+
+To select the subsets, we keep an estimate on each subsets' classification accuracy. This estimate is calculated based on counts of the number of correct predictions a subset has made. The counts are kept based on the subset's position rather than its composition (similar to how counts are kept in the Space Saving Algorithm \citep{Metwally2005}) to conserve memory and reduce complexity, and are subject to a decay factor set as a user parameter to make new instances more relevant and enable implicit adaptation to change. The final subset is selected from the currently best accuracy estimate.
+\end{description}

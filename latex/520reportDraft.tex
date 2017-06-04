@@ -1,0 +1,125 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Author: Lanqin Yuan
+% fyempathy@gmail.com
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+%\documentclass{article}
+\documentclass[a4paper, 11pt, oneside]{Thesis} % use thesis latex class
+
+%\usepackage[margin=2cm]{geometry} % Set margins to whatever
+\usepackage{graphicx} % Required for the inclusion of images
+\usepackage{natbib} % Required to change bibliography style to APA
+\usepackage{amsmath} % Required for some math elements 
+\usepackage{float}
+\usepackage{algorithm}% http://ctan.org/pkg/algorithms
+\usepackage{algpseudocode}% http://ctan.org/pkg/algorithmicx
+% ---
+% makes sure figures doesnt screw up sections and subsections
+\usepackage{placeins}
+\let\Oldsection\section
+\renewcommand{\section}{\FloatBarrier\Oldsection}
+\let\Oldsubsection\subsection
+\renewcommand{\subsection}{\FloatBarrier\Oldsubsection}
+\let\Oldsubsubsection\subsubsection
+\renewcommand{\subsubsection}{\FloatBarrier\Oldsubsubsection}
+% ---
+
+%\setlength\parindent{0pt} % Removes all indentation from paragraphs
+
+%\renewcommand{\labelenumi}{\alph{enumi}.} % Make numbering in the enumerate environment by letter rather than number (e.g. section 6)
+
+%\usepackage{times} % Uncomment to use the Times New Roman font
+
+%----------------------------------------------------------------------------------------
+%	DOCUMENT INFORMATION
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+% Insert Title Page
+\input{Sections/TitlePage}
+
+\cleardoublepage
+\input{Sections/Quote}
+
+\input{Sections/Acknowledgements}
+
+% FRONTMATTER
+\pagenumbering{roman} % Begin Roman style (i, ii, iii, iv...) page numbering
+
+% insert a table of contents
+\tableofcontents
+\listoffigures
+ 
+\listoftables
+\clearpage
+
+\input{Sections/Abstract}
+
+
+% MAINMATTER
+\pagenumbering{arabic}
+\pagestyle{fancy}
+%----------------------------------------------------------------------------------------
+%	SECTION 1
+%----------------------------------------------------------------------------------------
+\input{Sections/Intro}
+
+%----------------------------------------------------------------------------------------
+%	SECTION 2
+%----------------------------------------------------------------------------------------
+\input{Sections/Related}
+
+%----------------------------------------------------------------------------------------
+%	SECTION 3
+%----------------------------------------------------------------------------------------
+\input{Sections/Method}
+
+%----------------------------------------------------------------------------------------
+%	SECTION 4
+%----------------------------------------------------------------------------------------
+\input{Sections/Implementation}
+
+%----------------------------------------------------------------------------------------
+%	SECTION 5
+%----------------------------------------------------------------------------------------
+\input{Sections/Evaluation}
+
+%----------------------------------------------------------------------------------------
+%	SECTION 6
+%----------------------------------------------------------------------------------------
+\input{Sections/Results}
+
+
+%----------------------------------------------------------------------------------------
+%	SECTION 7
+%----------------------------------------------------------------------------------------
+\input{Sections/Conclusion}
+
+
+
+%----------------------------------------------------------------------------------------
+%	BIBLIOGRAPHY
+%----------------------------------------------------------------------------------------
+\bibliographystyle{apa} % use APA style bibliography
+
+\bibliography{reportBib}
+
+% BACKMATTER
+
+
+%----------------------------------------------------------------------------------------
+%	APENDICES
+%----------------------------------------------------------------------------------------
+\appendix % tell latex that the following chapters are appendices
+\input{Sections/Acronyms}
+\input{Sections/Graphs}
+\input{Sections/Tables}
+
+\end{document}

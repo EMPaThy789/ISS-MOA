@@ -3,4 +3,17 @@
 *.iml
 *~
 *.bak
+*.jar
+*.pdf
+*.aux
+*.bbl
+*.blg
+*.lof
+*.log
+*.lot
+*.out
+*.gz
+*.toc
+*.ini
+*.
 

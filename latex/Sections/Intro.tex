@@ -1,0 +1,8 @@
+\chapter{Introduction}
+\label{chapter:Introduction}
+
+The selection of relevant features to be considered by the training algorithm in a batch data mining setting has been shown to be beneficial to prediction performance as well as improving computation time and memory usage \citep{Hall98correlation-basedfeature}. Considering too many features during training can result in over-fitting which can lead to poor classification prediction rates. Features which are irrelevant to the task at hand also take up valuable memory and are a burden to computation time while not actually improving, or in some cases worsening classification prediction performance by causing the classifier to overfit.
+
+As data stream mining is a relatively new area in the field of data mining and machine learning, feature selection in a stream setting has so far been a mostly ignored area of study. Adapting batch feature selection algorithms to a stream setting is not straightforward due to the constraints of the stream setting previously mentioned and as a result feature selection algorithms specialised for data stream mining are far and few.
+
+For our project, we propose and explore a new technique for feature selection specialised for a stream setting. We implement this method and test its effect on classifier accuracy, computation time, and memory usage in a variety of different stream settings.
