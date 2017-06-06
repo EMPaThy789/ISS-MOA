@@ -175,8 +175,11 @@ public class ISSExperiments {
         HashMap<String, Classifier> classifiers = new HashMap<>();
         classifiers.put("KNN", new kNN());
         int rankingOptionI = 0;
+
+
         //for(int rankingOptionI = 0; rankingOptionI < 3; rankingOptionI++)
         {
+            // window, reselection and hc
             for (int windowSizeI = 1; windowSizeI <= 3; windowSizeI++)
             {
                 for (int reselectionI = 1; reselectionI <= 3; reselectionI++)
@@ -209,6 +212,7 @@ public class ISSExperiments {
                 }
             }
 
+            // decay
             for (int decayIntervalI = 1; decayIntervalI <= 3; decayIntervalI++)
             {
                 for (int decayI = 1; decayI < 8; decayI++)
@@ -229,11 +233,7 @@ public class ISSExperiments {
                     classifiers.put("kNN-ISS-HC-" + rankingFunc + " (window: " + kNNISSClassifier.limitOption.getValue() + " reselectionInterval:  " + kNNISSClassifier.reselectionIntervalOption.getValue() + " decay: " + kNNISSClassifier.decayFactorOption.getValue() + " decayInterval: " + kNNISSClassifier.decayIntervalOption.getValue() + " hillClimbWindow: " + kNNISSClassifier.hillClimbWindowOption.getValue(), kNNISSClassifier);
                 }
             }
-
-
         }
-
-
         return classifiers;
     }
 
@@ -473,10 +473,10 @@ public class ISSExperiments {
         FYB.seedOption.setValue(1);
         FYB.relevantNominalOption.setValue(10);
         FYB.relevantNumericOption.setValue(10);
-        FYB.irrelevantNominalOption.setValue(10);
-        FYB.irrelevantNumericOption.setValue(10);
-        FYB.nomOption.setValue(50);
-        FYB.numOption.setValue(50);
+        FYB.irrelevantNominalOption.setValue(50);
+        FYB.irrelevantNumericOption.setValue(50);
+        FYB.nomOption.setValue(10);
+        FYB.numOption.setValue(10);
         FYB.classOption.setValue(4);
         FYB.nomOption.setValue(10);
         FYB.numOption.setValue(5);
@@ -537,10 +537,10 @@ public class ISSExperiments {
         FYBDrift.seedOption.setValue(1);
         FYBDrift.relevantNominalOption.setValue(10);
         FYBDrift.relevantNumericOption.setValue(10);
-        FYBDrift.irrelevantNominalOption.setValue(10);
-        FYBDrift.irrelevantNumericOption.setValue(10);
-        FYBDrift.nomOption.setValue(50);
-        FYBDrift.numOption.setValue(50);
+        FYBDrift.irrelevantNominalOption.setValue(50);
+        FYBDrift.irrelevantNumericOption.setValue(50);
+        FYBDrift.nomOption.setValue(10);
+        FYBDrift.numOption.setValue(10);
         FYBDrift.classOption.setValue(4);
         FYBDrift.nomOption.setValue(10);
         FYBDrift.numOption.setValue(5);
