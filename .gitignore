@@ -1,9 +1,9 @@
 /target/
+moa/src/main/java/cleanmoa.jar
 .idea
 *.iml
 *~
 *.bak
-*.jar
 *.aux
 *.bbl
 *.blg
