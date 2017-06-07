@@ -4,7 +4,6 @@
 *~
 *.bak
 *.jar
-*.pdf
 *.aux
 *.bbl
 *.blg
@@ -15,5 +14,3 @@
 *.gz
 *.toc
 *.ini
-*.
-
