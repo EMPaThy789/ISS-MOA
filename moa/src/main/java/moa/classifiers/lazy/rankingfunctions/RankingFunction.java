@@ -44,9 +44,8 @@ public abstract class RankingFunction implements Serializable
 {
     protected int classIndex = -1; // uninitialised = -1
     protected int numberOfFeatures = -1;
-    protected double accuracyGainWeight = 0;
 
-    public abstract int[] rankFeatures(Instances window, double[] accuracyGain, int[] previousBestFeatures);
+    public abstract int[] rankFeatures(Instances window,  int[] previousBestFeatures);
 
     /**
      * adds an instance to the window
@@ -63,10 +62,9 @@ public abstract class RankingFunction implements Serializable
      */
     public abstract void removeInstance(Instance inst);
 
-    public void initialise(int numberOfFeatures, double accuracyGainWeight, int classIndex)
+    public void initialise(int numberOfFeatures, int classIndex)
     {
         this.numberOfFeatures = numberOfFeatures;
-        this.accuracyGainWeight = accuracyGainWeight;
         this.classIndex = classIndex;
     }
 
