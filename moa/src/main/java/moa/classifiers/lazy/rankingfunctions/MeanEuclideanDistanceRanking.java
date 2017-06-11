@@ -136,11 +136,10 @@ public class MeanEuclideanDistanceRanking extends RankingFunction
     /**
      * ranks features in the window
      * @param window
-     * @param accuracyGain Array of previous accruacy difference (currently not used due to inconsistency)
      * @param previousBestFeatures Array of indiciesof previous ranked features (currently not used due to inconsistency)
      * @return
      */
-    public int[] rankFeatures(Instances window, double[] accuracyGain, int[] previousBestFeatures)
+    public int[] rankFeatures(Instances window, int[] previousBestFeatures)
     {
 
         // use EuclideanDistance class to normalise stuff
@@ -189,22 +188,6 @@ public class MeanEuclideanDistanceRanking extends RankingFunction
                 }
             }
         }
-
-
-        /*
-        // accuracy gain (not used atm)
-        if(accuracyGainWeight != 0 && previousBestFeatures!= null)
-        {
-            // simply add the accuracy gain ( which is between 0-1) multiplied by the weight onto the feature distance.
-            for(int g = 0; g < accuracyGain.length;g++)
-            {
-                if(accuracyGain[g]>0)
-                {
-                    featureDistances[previousBestFeatures[g]] += accuracyGainWeight * accuracyGain[g];
-                }
-            }
-        }
-        */
 
         // set class index to -1 so its never selected (unless something is screwed up)
         featureDistances[window.classIndex()] = -1;

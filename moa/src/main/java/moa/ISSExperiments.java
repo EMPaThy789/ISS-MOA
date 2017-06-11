@@ -176,7 +176,6 @@ public class ISSExperiments {
         classifiers.put("KNN", new kNN());
         int rankingOptionI = 0;
 
-
         //for(int rankingOptionI = 0; rankingOptionI < 3; rankingOptionI++)
         {
             // window, reselection and hc
@@ -196,7 +195,7 @@ public class ISSExperiments {
                         kNNISSClassifier.hillClimbOption.setValue(true);
 
                         kNNISSClassifier.hillClimbWindowOption.setValue(hillClimbWindowSize);
-                        kNNISSClassifier.limitOption.setValue(windowSize);
+                        kNNISSClassifier.windowSizeOption.setValue(windowSize);
                         kNNISSClassifier.reselectionIntervalOption.setValue(reselectionInterval);
                         kNNISSClassifier.rankingOption.setChosenIndex(rankingOptionI);
 
@@ -207,7 +206,7 @@ public class ISSExperiments {
                             rankingFunc = "AED";
                         }
 
-                        classifiers.put("kNN-ISS-HC-" + rankingFunc + " (window: " + kNNISSClassifier.limitOption.getValue() + " reselectionInterval:  " + kNNISSClassifier.reselectionIntervalOption.getValue() + " decay: " + kNNISSClassifier.decayFactorOption.getValue() + " decayInterval: " + kNNISSClassifier.decayIntervalOption.getValue() + " hillClimbWindow: " + kNNISSClassifier.hillClimbWindowOption.getValue(), kNNISSClassifier);
+                        classifiers.put("kNN-ISS-HC-" + rankingFunc + " (window: " + kNNISSClassifier.windowSizeOption.getValue() + " reselectionInterval:  " + kNNISSClassifier.reselectionIntervalOption.getValue() + " decay: " + kNNISSClassifier.decayFactorOption.getValue() + " decayInterval: " + kNNISSClassifier.decayIntervalOption.getValue() + " hillClimbWindow: " + kNNISSClassifier.hillClimbWindowOption.getValue(), kNNISSClassifier);
                     }
                 }
             }
@@ -230,7 +229,7 @@ public class ISSExperiments {
                     if (rankingOptionI == 2) {
                         rankingFunc = "AED";
                     }
-                    classifiers.put("kNN-ISS-HC-" + rankingFunc + " (window: " + kNNISSClassifier.limitOption.getValue() + " reselectionInterval:  " + kNNISSClassifier.reselectionIntervalOption.getValue() + " decay: " + kNNISSClassifier.decayFactorOption.getValue() + " decayInterval: " + kNNISSClassifier.decayIntervalOption.getValue() + " hillClimbWindow: " + kNNISSClassifier.hillClimbWindowOption.getValue(), kNNISSClassifier);
+                    classifiers.put("kNN-ISS-HC-" + rankingFunc + " (window: " + kNNISSClassifier.windowSizeOption.getValue() + " reselectionInterval:  " + kNNISSClassifier.reselectionIntervalOption.getValue() + " decay: " + kNNISSClassifier.decayFactorOption.getValue() + " decayInterval: " + kNNISSClassifier.decayIntervalOption.getValue() + " hillClimbWindow: " + kNNISSClassifier.hillClimbWindowOption.getValue(), kNNISSClassifier);
                 }
             }
         }

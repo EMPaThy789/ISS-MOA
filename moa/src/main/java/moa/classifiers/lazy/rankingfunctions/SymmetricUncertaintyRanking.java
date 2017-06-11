@@ -33,7 +33,7 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
 {
     private boolean debug = false;
 
-    public int[] rankFeatures(Instances window, double[] accuracyGain, int[] previousBestFeatures)
+    public int[] rankFeatures(Instances window, int[] previousBestFeatures)
     {
         double[] suArray = new double[window.numAttributes()];
         for(int a = 0;a < window.numAttributes(); a++)
@@ -47,18 +47,6 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
             }
         }
 
-        // accuracy gain
-        if(accuracyGainWeight != 0 && previousBestFeatures!= null)
-        {
-            // simply add the accuracy gain ( which is between 0-1) multiplied by the weight onto the feature distance.
-            for(int g = 0; g < accuracyGain.length;g++)
-            {
-                if(accuracyGain[g]>0)
-                {
-                    suArray[previousBestFeatures[g]] += accuracyGainWeight * accuracyGain[g];
-                }
-            }
-        }
         int[] rankedFeatures = sortFeatureArray(suArray,numberOfFeatures);
 
         /*System.out.println(Arrays.toString(suArray));
