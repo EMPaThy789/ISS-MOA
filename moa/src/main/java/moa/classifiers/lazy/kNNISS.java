@@ -86,6 +86,13 @@ public class kNNISS extends AbstractClassifier
     protected  int[] wrongCount;
     protected double[] correctPercent;
 
+    // bounds for hill climbing
+    protected int lowerBound = 0;
+    protected int upperBound = -1;
+
+    // array of prediction results for each subset size
+    protected int[] predictionOfSubset;
+
     // 0 = subset of n features, n-1 = subset of only the top feature
     protected int bestSubset = 0;
     protected int featuresCount = 0;
@@ -93,6 +100,7 @@ public class kNNISS extends AbstractClassifier
     protected int reselectionCounter = 0;
     protected int decayCounter = 0;
     protected int largestClassIndex = 0; // starts at 0 (0 = 1 class)
+
     protected boolean initialised = false;
 
     protected RankingFunction rankingFunction = null;
@@ -124,8 +132,20 @@ public class kNNISS extends AbstractClassifier
 	 *  a method for initializing a classifier learner
 	 */
     @Override
-    public void resetLearningImpl() {
-		this.window = null;
+    public void resetLearningImpl()
+    {
+		initialised = false;
+        this.window = null;
+
+        correctCount   = null;
+        wrongCount     = null;
+        correctPercent = null;
+        predictionOfSubset = null;
+        bestSubset = 0;
+        featuresCount = 0;
+        reselectionCounter = 0;
+        decayCounter = 0;
+        largestClassIndex = 0;
     }
 
 	/**
@@ -147,7 +167,34 @@ public class kNNISS extends AbstractClassifier
 		{
 			this.window = new Instances(inst.dataset());
 		}
-		
+
+        // assign accuracy values for guess to subset
+        // bounds should have been set in prediction
+        for(int i = upperBound - 1; i >= lowerBound;i--)
+        {
+            // if predicted value by this subset is equal to the true class value
+            if (predictionOfSubset[i] == (int)inst.classValue())
+            {
+                // increment correct count for that subset
+                correctCount[i]++;
+            }
+            else
+            {
+                wrongCount[i]++;
+            }
+        }
+
+        // calculate accuracy for selection of best subset
+        for(int i = 0; i < correctPercent.length;i++)
+        {
+            correctPercent[i] = (double)correctCount[i]/(double)(wrongCount[i] + correctCount[i]);
+        }
+        // update best subset based on new accuracy values
+        bestSubset = Utils.maxIndex(correctPercent);
+
+
+
+		// updating sliding window
 		// if window is full, delete last element in window
 		if (this.windowSizeOption.getValue() <= this.window.numInstances())
 		{
@@ -185,7 +232,6 @@ public class kNNISS extends AbstractClassifier
             reselectionCounter--;
         }
 
-
         // check if enough time as passed for decay
         if(decayCounter <=0)
         {
@@ -203,12 +249,8 @@ public class kNNISS extends AbstractClassifier
             decayCounter--;
         }
 
-
-
 		try
         {
-            int lowerBound = 0;
-            int upperBound = -1;
             if(hillClimbOption.isSet())
             {
                 lowerBound = bestSubset - hillClimbWindowOption.getValue();
@@ -226,7 +268,7 @@ public class kNNISS extends AbstractClassifier
 
             // initialise search
             CumulativeLinearNNSearch cumulativeLinearNNSearch = new CumulativeLinearNNSearch();
-            cumulativeLinearNNSearch.initialiseCumulativeSearch(inst, this.window, topRankedFeatures,upperBound);
+            cumulativeLinearNNSearch.initialiseCumulativeSearch(inst, this.window, topRankedFeatureIndices,upperBound);
 
             // get a vote if there is enough instances in the window
 			if (this.window.numInstances() > 0)
@@ -234,47 +276,29 @@ public class kNNISS extends AbstractClassifier
 			    // backward elimination
                 for(int z = upperBound - 1; z >= lowerBound;z--)
                 {
+
                     // set number of features to consider in the search
-                    cumulativeLinearNNSearch.setNumberOfActiveFeatures(z+1);
+                    cumulativeLinearNNSearch.setNumberOfActiveFeatures(z + 1);
 
                     // get knn search result
-                    Instances neighbours = cumulativeLinearNNSearch.kNNSearch(inst,Math.min(kOption.getValue(),this.window.numInstances()));
-
+                    Instances neighbours = cumulativeLinearNNSearch.kNNSearch(inst, Math.min(kOption.getValue(), this.window.numInstances()));
 
                     // temp votes for current subset
-                    double t[] = new double[C+1];
-                    for(int i = 0; i < neighbours.numInstances(); i++)
-                    {
-                        t[(int)neighbours.instance(i).classValue()]++;
+                    double tempVotes[] = new double[largestClassIndex + 1];
+                    for (int i = 0; i < neighbours.numInstances(); i++) {
+                        tempVotes[(int) neighbours.instance(i).classValue()]++;
                     }
 
                     // set best subset as return for prediction before re-selecting best subset
-                    if(bestSubset == z)
+                    if (bestSubset == z)
                     {
                         // save votes
-                        v = t.clone();
+                        v[Utils.maxIndex(tempVotes)] = 1;
                     }
 
-                    // assign accuracy values for guess to subset
-                    if(Utils.maxIndex(t) == (int)inst.classValue()) // if predicted value by this subset is equal to the true class value
-                    {
-                        // increment correct count for that subset
-                        correctCount[z]++;
-                    }
-                    else
-                    {
-                        wrongCount[z]++;
-                    }
+                    // record prediction made by subset to use for learning via accuracy estimate
+                    predictionOfSubset[z] = Utils.maxIndex(tempVotes);
                 }
-
-
-                // calculate accuracy for selection of best subset
-                for(int i = 0; i < correctPercent.length;i++)
-                {
-                    correctPercent[i] = (double)correctCount[i]/(double)(wrongCount[i] + correctCount[i]);
-                }
-                // update best subset based on new accuracy values
-                bestSubset = Utils.maxIndex(correctPercent);
             }
 		}
 		catch(Exception e)
@@ -296,6 +320,9 @@ public class kNNISS extends AbstractClassifier
         // initialisation
         if (!initialised)
         {
+
+            initialised = true;
+
             // might be bug if first instance is missing attributes TODO check
             // check if there is actually enough features
             // if there is less features overall than F (limit specified)
@@ -313,15 +340,15 @@ public class kNNISS extends AbstractClassifier
 
             bestSubset = 0;
             // reset subset counts as subsets will be different
-            correctCount = new int[window.numAttributes()]; //int[featuresCount];
-            wrongCount = new int[window.numAttributes()]; //int[featuresCount];
-            correctPercent = new double[window.numAttributes()]; //double[featuresCount];
+            correctCount = new int[window.numAttributes()];
+            wrongCount = new int[window.numAttributes()];
+            correctPercent = new double[window.numAttributes()];
+            predictionOfSubset = new int[window.numAttributes()]; // we use one big array
             initialiseRankingFunction();
             // add first instance to ranking function
 
-            initialised = true;
 
-            // accuracy gain dump
+            // accuracy gain dump initialisation
             // Only dump if filename is specified
             String fileName = accuracyGainDumpOutputOption.getValue();
             if (!fileName.equals(""))
@@ -330,12 +357,11 @@ public class kNNISS extends AbstractClassifier
                 {
                     File file = new File(fileName);
 
-                    // if file doesnt exists, then create it
+                    // if file doesn't exists, then create it
                     if (!file.exists())
                     {
                         file.createNewFile();
                     }
-
 
                     // write headers
                     bw = new BufferedWriter(new FileWriter(file.getAbsoluteFile()));
@@ -361,7 +387,6 @@ public class kNNISS extends AbstractClassifier
         }
         else // if already initilised
         {
-
             // calculate accuracy gain from adding feature to subset
             // utilise accuracy difference by adding features to subset
             writeAG(computeAccuracyDiff(correctPercent));
@@ -392,12 +417,12 @@ public class kNNISS extends AbstractClassifier
                 bw.write(bestSubset + " out of " + window.numAttributes());
                 bw.write(System.lineSeparator());
                 bw.flush();
-            } catch (Exception e)
+            }
+            catch (Exception e)
             {
                 e.printStackTrace();
             }
         }
-
     }
 
     /**
@@ -426,11 +451,12 @@ public class kNNISS extends AbstractClassifier
     public void initialiseRankingFunction()
     {
         // initialise best features as just the first k features
-        bestFeatures = new int[featuresCount];
-        for(int i = 0; i < bestFeatures.length;i++)
+        topRankedFeatureIndices = new int[featuresCount];
+        for(int i = 0; i < topRankedFeatureIndices.length;i++)
         {
-            bestFeatures[i] = i;
+            topRankedFeatureIndices[i] = i;
         }
+
         // initialise ranking function
         // select ranking function based on option
         switch (this.rankingOption.getChosenIndex())
@@ -447,7 +473,9 @@ public class kNNISS extends AbstractClassifier
             default:
                 break;
         }
-        rankingFunction.initialise(featuresCount,1,window.classIndex());
+
+        // initialise ranking function
+        rankingFunction.initialise(featuresCount,window.classIndex());
     }
 
 
