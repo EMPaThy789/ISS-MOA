@@ -202,7 +202,7 @@ public class NaiveBayesISS extends AbstractClassifier
         }
 
         // set best ranked features
-        bestFeatures = rankingFunction.rankFeatures(rankingWindow, accuracyArray,bestFeatures);
+        bestFeatures = rankingFunction.rankFeatures(rankingWindow, bestFeatures);
         //System.out.println(Arrays.toString(bestFeatures));
     }
 
@@ -254,7 +254,7 @@ public class NaiveBayesISS extends AbstractClassifier
             default:
                 break;
         }
-        rankingFunction.initialise(rankedFeatureCount,1,rankingWindow.classIndex());
+        rankingFunction.initialise(rankedFeatureCount,rankingWindow.classIndex());
     }
 
 

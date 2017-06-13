@@ -41,7 +41,7 @@ import moa.core.Utils;
  *
  * @author Lanqin Yuan (fyempathy@gmail.com)
  * Orignial MOA kNN Jesse Read (jesse@tsc.uc3m.es)
- * @version 1
+ * @version 1.1
  */
 public class kNNISS extends AbstractClassifier
 {
@@ -49,16 +49,19 @@ public class kNNISS extends AbstractClassifier
     private static final long serialVersionUID = 2L; // some random number i entered
 
     // options
-	public IntOption kOption = new IntOption( "k", 'k', "The number of neighbours", 10, 1, Integer.MAX_VALUE);
+	public IntOption kOption = new IntOption( "k", 'k', "The number of nearest neighbours.", 10, 1, Integer.MAX_VALUE);
 
-	public IntOption limitOption = new IntOption( "limit", 'w', "The maximum number of instances to store", 1000, 1, Integer.MAX_VALUE);
+	public IntOption windowSizeOption = new IntOption( "windowSize", 'w', "The maximum number of instances to store in the window.", 1000, 1, Integer.MAX_VALUE);
 
-    public IntOption featureLimitOption = new IntOption( "featureLimit", 'f', "The number of best features to select subsets from from. -1 means all features in stream.", -1, -1, Integer.MAX_VALUE);
-    public IntOption reselectionIntervalOption = new IntOption( "reselectionInterval", 't', "The interval between when features are re-ranked", 1000, 1, Integer.MAX_VALUE);
-    public IntOption decayIntervalOption = new IntOption("decayInterval", 'v', "The interval at which decay of counts happen.", 1000, 1, Integer.MAX_VALUE);
+    public IntOption featureLimitOption = new IntOption( "featureLimit", 'f', "The number of top ranked features to select subsets from from. -1 is a wildcard and selects from all features in stream.", -1, -1, Integer.MAX_VALUE);
+    public IntOption reselectionIntervalOption = new IntOption( "reselectionInterval", 't', "The interval between when features are re-ranked.", 1000, 1, Integer.MAX_VALUE);
 
+    public IntOption decayIntervalOption = new IntOption("decayInterval", 'v', "The interval at which decay of accuracy estimate counts occur.", 1000, 1, Integer.MAX_VALUE);
+    public FloatOption decayFactorOption = new FloatOption("decayFactor", 'd', "The value of which to decay accuracy estimate counts by.", 0.1, 0.0, 1.0);
 
-    public FloatOption decayFactorOption = new FloatOption("decayFactor", 'd', "The value of which to decay accuracy and total counts by.", 0.1, 0.0, 1.0);
+    public FlagOption hillClimbOption = new FlagOption("hillCilmb", 'h', "Whether or not to enable adaptive F via hill climbing.");
+    public IntOption hillClimbWindowOption = new IntOption( "hillClimbWindow", 'a', "The size of the hill climb window.", 2, 0, 10);
+
     // public FloatOption accuracyGainWeightOption = new FloatOption("accuracyGainFactor", 'g', "How much weight to put into accuracy gain for ranking features.", 0.0, 0.0, 1.0);
 
     public MultiChoiceOption rankingOption = new MultiChoiceOption(
@@ -71,23 +74,24 @@ public class kNNISS extends AbstractClassifier
                 "Average Euclidean distance"
         }, 0);
 
-    // kNN optimisation
-    //public FlagOption optimiseOption = new FlagOption("optimisekNN", 'o', "Whether or not to enable optimisation for kNN search");
-
-
-    public FlagOption hillClimbOption = new FlagOption("hillCilmbing", 'h', "Whether or not to enable adaptive F via hill climbing");
-    public IntOption hillClimbWindowOption = new IntOption( "hillClimbWindow", 'a', "The number of neighbours", 2, 0, 10);
-
     // accuracy difference
-    public StringOption outputNameOption = new StringOption("outputName",'n',"filename for output of accuracy difference as features are added to the subsets","");
-    public BufferedWriter bw;
+    public StringOption accuracyGainDumpOutputOption = new StringOption("accuracyGainDumpOutput",'n',"filename for output of accuracy difference as features are added to the subsets","");
 
-    protected int[] bestFeatures;
+    protected BufferedWriter bw;
+
+    protected int[] topRankedFeatureIndices;
 
     // correct and incorrect count for each class, used to rank subsets
     protected  int[] correctCount;
     protected  int[] wrongCount;
     protected double[] correctPercent;
+
+    // bounds for hill climbing
+    protected int lowerBound = 0;
+    protected int upperBound = -1;
+
+    // array of prediction results for each subset size
+    protected int[] predictionOfSubset;
 
     // 0 = subset of n features, n-1 = subset of only the top feature
     protected int bestSubset = 0;
@@ -95,17 +99,18 @@ public class kNNISS extends AbstractClassifier
 
     protected int reselectionCounter = 0;
     protected int decayCounter = 0;
-    protected int C = 0;
+    protected int largestClassIndex = 0; // starts at 0 (0 = 1 class)
+
     protected boolean initialised = false;
 
     protected RankingFunction rankingFunction = null;
+    protected Instances window;
 
     @Override
     public String getPurposeString() {
-        return "kNNISS: kNN with ISS feature selection.";
+        return "kNNISS: kNN classifier with ISS feature selection.";
     }
 
-    protected Instances window;
 
 	@Override
 	public void setModelContext(InstancesHeader context)
@@ -127,8 +132,24 @@ public class kNNISS extends AbstractClassifier
 	 *  a method for initializing a classifier learner
 	 */
     @Override
-    public void resetLearningImpl() {
-		this.window = null;
+    public void resetLearningImpl()
+    {
+		initialised = false;
+        this.window = null;
+        topRankedFeatureIndices = null;
+        rankingFunction = null;
+
+        lowerBound = 0;
+        upperBound = -1;
+        correctCount   = null;
+        wrongCount     = null;
+        correctPercent = null;
+        predictionOfSubset = null;
+        bestSubset = 0;
+        featuresCount = 0;
+        reselectionCounter = 0;
+        decayCounter = 0;
+        largestClassIndex = 0;
     }
 
 	/**
@@ -140,9 +161,9 @@ public class kNNISS extends AbstractClassifier
     {
 
         // sets C as the number of classes that a instance can be classified as and expands C if a new class value is seen
-		if (inst.classValue() > C)
+		if (inst.classValue() > largestClassIndex)
 		{
-            C = (int) inst.classValue();
+            largestClassIndex = (int) inst.classValue();
         }
 
 		// if window is empty, initialise the window
@@ -150,15 +171,45 @@ public class kNNISS extends AbstractClassifier
 		{
 			this.window = new Instances(inst.dataset());
 		}
-		
+
+        // assign accuracy values for guess to subset
+        // bounds should have been set in prediction
+        for(int i = upperBound - 1; i >= lowerBound;i--)
+        {
+            // if predicted value by this subset is equal to the true class value
+            if (predictionOfSubset[i] == (int)inst.classValue())
+            {
+                // increment correct count for that subset
+                correctCount[i]++;
+            }
+            else
+            {
+                wrongCount[i]++;
+            }
+        }
+
+        // calculate accuracy for selection of best subset
+        for(int i = 0; i < correctPercent.length;i++)
+        {
+            correctPercent[i] = (double)correctCount[i]/(double)(wrongCount[i] + correctCount[i]);
+        }
+        // update best subset based on new accuracy values
+        bestSubset = Utils.maxIndex(correctPercent);
+
+
+
+		// updating sliding window
 		// if window is full, delete last element in window
-		if (this.limitOption.getValue() <= this.window.numInstances())
+		if (this.windowSizeOption.getValue() <= this.window.numInstances())
 		{
+		    // also remove from ranking function
 		    rankingFunction.removeInstance(this.window.get(0));
 			this.window.delete(0);
 		}
+
 		// add element to window
 		this.window.add(inst);
+		// also add to ranking function
         rankingFunction.addInstance(inst);
     }
 
@@ -171,7 +222,7 @@ public class kNNISS extends AbstractClassifier
     public double[] getVotesForInstance(Instance inst)
     {
         // vote array for class
-		double v[] = new double[C+1];
+		double v[] = new double[largestClassIndex+1];
 
         // check if enough time as passed
         if(reselectionCounter <=0)
@@ -184,7 +235,6 @@ public class kNNISS extends AbstractClassifier
         {
             reselectionCounter--;
         }
-
 
         // check if enough time as passed for decay
         if(decayCounter <=0)
@@ -203,12 +253,8 @@ public class kNNISS extends AbstractClassifier
             decayCounter--;
         }
 
-
-
 		try
         {
-            int lowerBound = 0;
-            int upperBound = -1;
             if(hillClimbOption.isSet())
             {
                 lowerBound = bestSubset - hillClimbWindowOption.getValue();
@@ -226,7 +272,7 @@ public class kNNISS extends AbstractClassifier
 
             // initialise search
             CumulativeLinearNNSearch cumulativeLinearNNSearch = new CumulativeLinearNNSearch();
-            cumulativeLinearNNSearch.initialiseCumulativeSearch(inst, this.window, bestFeatures,upperBound);
+            cumulativeLinearNNSearch.initialiseCumulativeSearch(inst, this.window, topRankedFeatureIndices,upperBound);
 
             // get a vote if there is enough instances in the window
 			if (this.window.numInstances() > 0)
@@ -234,47 +280,29 @@ public class kNNISS extends AbstractClassifier
 			    // backward elimination
                 for(int z = upperBound - 1; z >= lowerBound;z--)
                 {
+
                     // set number of features to consider in the search
-                    cumulativeLinearNNSearch.setNumberOfActiveFeatures(z+1);
+                    cumulativeLinearNNSearch.setNumberOfActiveFeatures(z + 1);
 
                     // get knn search result
-                    Instances neighbours = cumulativeLinearNNSearch.kNNSearch(inst,Math.min(kOption.getValue(),this.window.numInstances()));
-
+                    Instances neighbours = cumulativeLinearNNSearch.kNNSearch(inst, Math.min(kOption.getValue(), this.window.numInstances()));
 
                     // temp votes for current subset
-                    double t[] = new double[C+1];
-                    for(int i = 0; i < neighbours.numInstances(); i++)
-                    {
-                        t[(int)neighbours.instance(i).classValue()]++;
+                    double tempVotes[] = new double[largestClassIndex + 1];
+                    for (int i = 0; i < neighbours.numInstances(); i++) {
+                        tempVotes[(int) neighbours.instance(i).classValue()]++;
                     }
 
                     // set best subset as return for prediction before re-selecting best subset
-                    if(bestSubset == z)
+                    if (bestSubset == z)
                     {
                         // save votes
-                        v = t.clone();
+                        v[Utils.maxIndex(tempVotes)] = 1;
                     }
 
-                    // assign accuracy values for guess to subset
-                    if(Utils.maxIndex(t) == (int)inst.classValue()) // if predicted value by this subset is equal to the true class value
-                    {
-                        // increment correct count for that subset
-                        correctCount[z]++;
-                    }
-                    else
-                    {
-                        wrongCount[z]++;
-                    }
+                    // record prediction made by subset to use for learning via accuracy estimate
+                    predictionOfSubset[z] = Utils.maxIndex(tempVotes);
                 }
-
-
-                // calculate accuracy for selection of best subset
-                for(int i = 0; i < correctPercent.length;i++)
-                {
-                    correctPercent[i] = (double)correctCount[i]/(double)(wrongCount[i] + correctCount[i]);
-                }
-                // update best subset based on new accuracy values
-                bestSubset = Utils.maxIndex(correctPercent);
             }
 		}
 		catch(Exception e)
@@ -291,11 +319,14 @@ public class kNNISS extends AbstractClassifier
      *  Select the best subset of features from active features.
      * @param f Number of features specified
      */
-    private void selectFeatureSubset(int f)
+    protected void selectFeatureSubset(int f)
     {
         // initialisation
         if (!initialised)
         {
+
+            initialised = true;
+
             // might be bug if first instance is missing attributes TODO check
             // check if there is actually enough features
             // if there is less features overall than F (limit specified)
@@ -311,31 +342,30 @@ public class kNNISS extends AbstractClassifier
                 featuresCount = f;
             }
 
-
             bestSubset = 0;
             // reset subset counts as subsets will be different
-            correctCount = new int[window.numAttributes()]; //int[featuresCount];
-            wrongCount = new int[window.numAttributes()]; //int[featuresCount];
-            correctPercent = new double[window.numAttributes()]; //double[featuresCount];
+            correctCount = new int[window.numAttributes()];
+            wrongCount = new int[window.numAttributes()];
+            correctPercent = new double[window.numAttributes()];
+            predictionOfSubset = new int[window.numAttributes()]; // we use one big array
             initialiseRankingFunction();
             // add first instance to ranking function
 
-            initialised = true;
 
+            // accuracy gain dump initialisation
             // Only dump if filename is specified
-            String fileName = outputNameOption.getValue();
+            String fileName = accuracyGainDumpOutputOption.getValue();
             if (!fileName.equals(""))
             {
                 try
                 {
                     File file = new File(fileName);
 
-                    // if file doesnt exists, then create it
+                    // if file doesn't exists, then create it
                     if (!file.exists())
                     {
                         file.createNewFile();
                     }
-
 
                     // write headers
                     bw = new BufferedWriter(new FileWriter(file.getAbsoluteFile()));
@@ -361,39 +391,41 @@ public class kNNISS extends AbstractClassifier
         }
         else // if already initilised
         {
-
             // calculate accuracy gain from adding feature to subset
             // utilise accuracy difference by adding features to subset
-            double[] accuracyArray = computeAccuracyDiff(correctPercent); // not currently used other than to dump
+            writeAG(computeAccuracyDiff(correctPercent));
+            // set best ranked features
+            topRankedFeatureIndices = rankingFunction.rankFeatures(window, topRankedFeatureIndices);
+        }
+    }
 
-            // Write ag to file if specified
-            if (bw != null)
+    /**
+     * writes to dump file for accuracy gain.
+     */
+    protected void writeAG(double[] accuracyArray)
+    {
+        // Write ag to file if specified
+        if (bw != null)
+        {
+            try
             {
-                try
+                for (int i = 0; i < correctPercent.length; i++)
                 {
-                    for (int i = 0; i < correctPercent.length; i++)
-                    {
-                        bw.write(Double.toString(correctPercent[i]) + ",");
+                    bw.write(Double.toString(correctPercent[i]) + ",");
 
-                    }
-                    for (int i = 0; i < accuracyArray.length; i++)
-                    {
-                        bw.write(Double.toString(accuracyArray[i]) + ",");
-                    }
-                    bw.write(bestSubset + " out of " + window.numAttributes());
-                    bw.write(System.lineSeparator());
-                    bw.flush();
-                } catch (Exception e)
-                {
-                    e.printStackTrace();
                 }
+                for (int i = 0; i < accuracyArray.length; i++)
+                {
+                    bw.write(Double.toString(accuracyArray[i]) + ",");
+                }
+                bw.write(bestSubset + " out of " + window.numAttributes());
+                bw.write(System.lineSeparator());
+                bw.flush();
             }
-
-
-            // set best features
-            bestFeatures = rankingFunction.rankFeatures(window, accuracyArray,bestFeatures);
-			//System.out.println(Arrays.toString(bestFeatures));
-
+            catch (Exception e)
+            {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -423,11 +455,12 @@ public class kNNISS extends AbstractClassifier
     public void initialiseRankingFunction()
     {
         // initialise best features as just the first k features
-        bestFeatures = new int[featuresCount];
-        for(int i = 0; i < bestFeatures.length;i++)
+        topRankedFeatureIndices = new int[featuresCount];
+        for(int i = 0; i < topRankedFeatureIndices.length;i++)
         {
-            bestFeatures[i] = i;
+            topRankedFeatureIndices[i] = i;
         }
+
         // initialise ranking function
         // select ranking function based on option
         switch (this.rankingOption.getChosenIndex())
@@ -444,7 +477,9 @@ public class kNNISS extends AbstractClassifier
             default:
                 break;
         }
-        rankingFunction.initialise(featuresCount,1,window.classIndex());
+
+        // initialise ranking function
+        rankingFunction.initialise(featuresCount,window.classIndex());
     }
 
 
