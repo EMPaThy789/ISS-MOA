@@ -136,7 +136,11 @@ public class kNNISS extends AbstractClassifier
     {
 		initialised = false;
         this.window = null;
+        topRankedFeatureIndices = null;
+        rankingFunction = null;
 
+        lowerBound = 0;
+        upperBound = -1;
         correctCount   = null;
         wrongCount     = null;
         correctPercent = null;
