@@ -18,13 +18,14 @@
  *    Copyright (C) 1999-2012 University of Waikato
  */
 
-package moa.classifiers.lazy.neighboursearch;
+package moa.classifiers.iss.knn;
 
 
 import com.yahoo.labs.samoa.instances.Attribute;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.InstanceImpl;
 import com.yahoo.labs.samoa.instances.Instances;
+import moa.classifiers.lazy.neighboursearch.EuclideanDistance;
 import moa.core.DoubleVector;
 import moa.core.Utils;
 

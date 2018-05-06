@@ -16,18 +16,9 @@
  *    
  */
 
-package moa.classifiers.lazy.rankingfunctions;
-import java.io.StringReader;
-import java.sql.Array;
-import java.util.Arrays;
-import java.util.List;
+package moa.classifiers.iss.ranking;
 
-import com.github.javacliparser.FlagOption;
-import com.github.javacliparser.FloatOption;
-import moa.classifiers.AbstractClassifier;
 import moa.classifiers.lazy.neighboursearch.*;
-import moa.core.AutoExpandVector;
-import moa.core.Measurement;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 
@@ -136,7 +127,7 @@ public class MeanEuclideanDistanceRanking extends RankingFunction
     /**
      * ranks features in the window
      * @param window
-     * @param previousBestFeatures Array of indiciesof previous ranked features (currently not used due to inconsistency)
+     * @param previousBestFeatures Array of indicies of previous ranked features (currently not used due to inconsistency)
      * @return
      */
     public int[] rankFeatures(Instances window, int[] previousBestFeatures)
@@ -202,7 +193,7 @@ public class MeanEuclideanDistanceRanking extends RankingFunction
         }
 
         // sort the features based on their distances between each class
-        int[] rankedFeatures = sortFeatureArray(featureDistances,numberOfFeatures);
+        int[] rankedFeatures = sortFeatureArrayDesc(featureDistances,numberOfFeatures);
         return rankedFeatures;
     }
 

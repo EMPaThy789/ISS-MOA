@@ -8,9 +8,9 @@ import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
 import moa.classifiers.Classifier;
 import moa.classifiers.bayes.NaiveBayes;
-import moa.classifiers.bayes.NaiveBayesISS;
+import moa.classifiers.iss.NaiveBayesISS;
 import moa.classifiers.lazy.kNN;
-import moa.classifiers.lazy.kNNISS;
+import moa.classifiers.iss.kNNISS;
 import moa.evaluation.LearningCurve;
 import moa.streams.ConceptDriftStream;
 import moa.streams.ExampleStream;
@@ -519,6 +519,7 @@ public class ISSExperiments {
 
         ConditionalGenerator FYADrift = new ConditionalGenerator();
         FYADrift.seedOption.setValue(1);
+        FYADrift.driftIntervalOption.setValue(DRIFT_POSITION_SINGLE_DRIFT);
         FYADrift.relevantNominalOption.setValue(10);
         FYADrift.relevantNumericOption.setValue(10);
         FYADrift.irrelevantNominalOption.setValue(10);
@@ -534,6 +535,7 @@ public class ISSExperiments {
 
         ConditionalGenerator FYBDrift = new ConditionalGenerator();
         FYBDrift.seedOption.setValue(1);
+        FYBDrift.driftIntervalOption.setValue(DRIFT_POSITION_SINGLE_DRIFT);
         FYBDrift.relevantNominalOption.setValue(10);
         FYBDrift.relevantNumericOption.setValue(10);
         FYBDrift.irrelevantNominalOption.setValue(50);

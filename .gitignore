@@ -1,5 +1,7 @@
 /target/
 moa/src/main/java/cleanmoa.jar
+moa/src/main/java/moa.jar
+moa/src/main/java/build.sh
 .idea
 *.iml
 *~

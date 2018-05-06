@@ -16,7 +16,7 @@
  *    
  */
 
-package moa.classifiers.lazy.rankingfunctions;
+package moa.classifiers.iss.ranking;
 import java.io.StringReader;
 import java.sql.Array;
 import java.util.Arrays;
@@ -51,6 +51,8 @@ public class Feature
     {
 
     }
+
+
     public double getAverageValue()
     {
         if(!isNum)

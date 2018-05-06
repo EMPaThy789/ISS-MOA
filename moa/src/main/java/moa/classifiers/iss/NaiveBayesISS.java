@@ -17,7 +17,7 @@
  *    along with this program. If not, see <http://www.gnu.org/licenses/>.
  *    
  */
-package moa.classifiers.bayes;
+package moa.classifiers.iss;
 
 import com.github.javacliparser.FloatOption;
 import com.github.javacliparser.IntOption;
@@ -30,17 +30,16 @@ import moa.classifiers.AbstractClassifier;
 import moa.classifiers.core.attributeclassobservers.AttributeClassObserver;
 import moa.classifiers.core.attributeclassobservers.GaussianNumericAttributeClassObserver;
 import moa.classifiers.core.attributeclassobservers.NominalAttributeClassObserver;
-import moa.classifiers.lazy.rankingfunctions.InfoGainRanking;
-import moa.classifiers.lazy.rankingfunctions.MeanEuclideanDistanceRanking;
-import moa.classifiers.lazy.rankingfunctions.RankingFunction;
-import moa.classifiers.lazy.rankingfunctions.SymmetricUncertaintyRanking;
+import moa.classifiers.iss.ranking.InfoGainRanking;
+import moa.classifiers.iss.ranking.MeanEuclideanDistanceRanking;
+import moa.classifiers.iss.ranking.RankingFunction;
+import moa.classifiers.iss.ranking.SymmetricUncertaintyRanking;
 import moa.core.*;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * Naive Bayes incremental learner with iterative subset selection.
@@ -57,25 +56,24 @@ public class NaiveBayesISS extends AbstractClassifier
 {
     private static final long serialVersionUID = 1L;
 
-    public IntOption featureLimitOption = new IntOption( "featureLimit", 'f', "The number of best features to select subsets from.", -1, -1, Integer.MAX_VALUE);
+    public IntOption featureLimitOption = new IntOption( "featureLimit", 'f', "The number of top ranked features to conduct subset selection from, which is also the subset size upper bound. '-1' is a wildcard parameter which indicates all features in the stream.", -1, -1, Integer.MAX_VALUE);
     public IntOption reselectionIntervalOption = new IntOption( "reselectionInterval", 't', "The interval between when features are re-ranked.", 1000, 1, Integer.MAX_VALUE);
     public IntOption rankingWindowSizeOption = new IntOption( "rankingWindowSize", 'w', "The size of the window used for ranking.", 1000, 1, Integer.MAX_VALUE);
-    public IntOption decayIntervalOption = new IntOption("decayInterval", 'v', "The interval at which decay of counts happen.", 1000, 1, Integer.MAX_VALUE);
-    public FloatOption decayFactorOption = new FloatOption("decayFactor", 'd', "The value of which to decay accuracy and total counts by.", 0.1, 0.0, 1.0);
-    public MultiChoiceOption rankingOption = new MultiChoiceOption(
-            "ranking", 'm', "ranking method to use", new String[]{
-            "SU","InfoGain","MeanDistance"},
+    public FloatOption decayFactorOption = new FloatOption("decayFactor", 'd', "The value of which to decay the accuracy estimates counts by at every decay interval.", 0.1, 0.0, 1.0);
+    public IntOption decayIntervalOption = new IntOption("decayInterval", 'v', "The interval at which decay happens.", 1000, 1, Integer.MAX_VALUE);
 
-            new String[]{
-                    "Symmetric Uncertainty",
-                    "Information gain",
-                    "Average Euclidean distance"
+    public MultiChoiceOption rankingOption = new MultiChoiceOption(
+            "rankingMethod", 'm',
+            "ranking function to use.",
+            new String[]{"SU","InfoGain","MeanDistance"},
+            new String[]{"Symmetric Uncertainty","Information gain","Average Euclidean distance"
             }, 0);
 
 
-    // accuracy difference
-    public StringOption outputNameOption = new StringOption("outputName",'n',"filename for output of accuracy difference as features are added to the subsets","");
-    public BufferedWriter bw;
+    // accuracy difference dump
+    public StringOption outputNameOption = new StringOption("outputName",'n',"File name for output of accuracy difference as features are removed from subsets. An empty field produces no dump file.","");
+    // buffered writer for writing out this dump file
+    protected BufferedWriter bw;
 
     // window used for ranking of features
     protected Instances rankingWindow;
@@ -84,28 +82,38 @@ public class NaiveBayesISS extends AbstractClassifier
 
     protected int rankedFeatureCount = 0;
     protected int[] bestFeatures;
+
     // correct and incorrect count for each class, used to rank subsets
     protected  int[] correctCount;
     protected  int[] wrongCount;
     protected double[] correctPercent;
 
-    // 0 = subset of n features, n-1 = subset of only the top feature
-    protected int bestSubset = -1;
-    //;protected int featuresCount = 0;
+    // 0 = subset of n features,
+    // n-1 = subset of only the top feature
+    protected int bestSubsetIndex = -1;
+
+    // counters for reselection and decay which are incremented every instance
     protected int reselectionCounter = 0;
     protected int decayCounter = 0;
+
+    // array to keep track of what each subset predicted
+    protected int[] subsetClassPredictions;
+
     protected boolean initialised = false;
 
-    protected int[] subsetClassPredictions;
+    protected DoubleVector observedClassDistribution;
+    protected AutoExpandVector<AttributeClassObserver> attributeObservers;
 
     @Override
     public String getPurposeString() {
         return "Naive Bayes with ISS feature selection classifier.";
     }
-    protected DoubleVector observedClassDistribution;
 
-    protected AutoExpandVector<AttributeClassObserver> attributeObservers;
 
+    /**
+     *
+     * @param f
+     */
     protected void initialiseFeatureSubsets(int f)
     {
         // might be bug if first instance is missing attributes TODO check
@@ -124,7 +132,7 @@ public class NaiveBayesISS extends AbstractClassifier
 
 
         // set first prediction as all features
-        bestSubset = rankedFeatureCount - 1;
+        bestSubsetIndex = rankedFeatureCount - 1;
 
         // reset subset counts as subsets will be different
         correctCount = new int[rankingWindow.numAttributes()]; //int[featuresCount];
@@ -168,6 +176,7 @@ public class NaiveBayesISS extends AbstractClassifier
             }
         }
     }
+
     /**
      *  Select the best subset of features from active features.
      */
@@ -192,7 +201,7 @@ public class NaiveBayesISS extends AbstractClassifier
                 {
                     bw.write(Double.toString(accuracyArray[i]) + ",");
                 }
-                bw.write(bestSubset + " out of " + rankingWindow.numAttributes());
+                bw.write(bestSubsetIndex + " out of " + rankingWindow.numAttributes());
                 bw.write(System.lineSeparator());
                 bw.flush();
             } catch (Exception e)
@@ -205,7 +214,6 @@ public class NaiveBayesISS extends AbstractClassifier
         bestFeatures = rankingFunction.rankFeatures(rankingWindow, bestFeatures);
         //System.out.println(Arrays.toString(bestFeatures));
     }
-
 
     /**
      * Computes the prediction accuracy gained by adding the next best ranked feature F.
@@ -344,7 +352,7 @@ public class NaiveBayesISS extends AbstractClassifier
                 correctPercent[i] = (double)correctCount[i]/(double)(wrongCount[i] + correctCount[i]);
         }
         // update best subset based on new accuracy values
-        bestSubset = Utils.maxIndex(correctPercent);
+        bestSubsetIndex = Utils.maxIndex(correctPercent);
     }
 
 
@@ -391,7 +399,7 @@ public class NaiveBayesISS extends AbstractClassifier
 
         subsetClassPredictions = doNaiveBayesPrediction(inst, this.observedClassDistribution,this.attributeObservers,bestFeatures);
         double[] finalPrediction = new double[inst.numClasses()];
-        finalPrediction[subsetClassPredictions[bestSubset]] = 1;
+        finalPrediction[subsetClassPredictions[bestSubsetIndex]] = 1;
 
         //System.out.println(Arrays.toString(finalPrediction));
         // TODO check here

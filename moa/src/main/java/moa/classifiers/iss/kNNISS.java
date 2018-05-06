@@ -16,21 +16,25 @@
  *    
  */
 
-package moa.classifiers.lazy;
-import java.io.*;
-import java.sql.Array;
-import java.util.Arrays;
-import java.util.List;
+package moa.classifiers.iss;
 
 import com.github.javacliparser.*;
-import moa.classifiers.AbstractClassifier;
-import moa.classifiers.lazy.neighboursearch.*;
-import moa.classifiers.lazy.rankingfunctions.*;
-import moa.core.Measurement;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 import com.yahoo.labs.samoa.instances.InstancesHeader;
+import moa.classifiers.AbstractClassifier;
+import moa.classifiers.iss.knn.CumulativeLinearNNSearch;
+import moa.classifiers.iss.ranking.InfoGainRanking;
+import moa.classifiers.iss.ranking.MeanEuclideanDistanceRanking;
+import moa.classifiers.iss.ranking.RankingFunction;
+import moa.classifiers.iss.ranking.SymmetricUncertaintyRanking;
+import moa.core.Measurement;
 import moa.core.Utils;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 
 /**
  * k Nearest Neighbor with Iterative Subset Selection.<p>
@@ -46,37 +50,36 @@ import moa.core.Utils;
 public class kNNISS extends AbstractClassifier
 {
 
-    private static final long serialVersionUID = 2L; // some random number i entered
+    private static final long serialVersionUID = 2L; // some random number I entered (idk what this actually does tbh)
 
-    // options
-	public IntOption kOption = new IntOption( "k", 'k', "The number of nearest neighbours.", 10, 1, Integer.MAX_VALUE);
+    // kNN parameters
 
-	public IntOption windowSizeOption = new IntOption( "windowSize", 'w', "The maximum number of instances to store in the window.", 1000, 1, Integer.MAX_VALUE);
 
-    public IntOption featureLimitOption = new IntOption( "featureLimit", 'f', "The number of top ranked features to select subsets from from. -1 is a wildcard and selects from all features in stream.", -1, -1, Integer.MAX_VALUE);
+    public IntOption kOption = new IntOption( "k", 'k', "The number of nearest neighbours.", 10, 1, Integer.MAX_VALUE);
+    public IntOption windowSizeOption = new IntOption( "windowSize", 'w', "The maximum number of instances to store in the window.", 1000, 1, Integer.MAX_VALUE);
+
+    // ISS parameters
+    public IntOption featureLimitOption = new IntOption( "featureLimit", 'f', "The number of top ranked features to conduct subset selection from, which is also the subset size upper bound. '-1' is a wildcard parameter which indicates all features in the stream.", -1, -1, Integer.MAX_VALUE);
     public IntOption reselectionIntervalOption = new IntOption( "reselectionInterval", 't', "The interval between when features are re-ranked.", 1000, 1, Integer.MAX_VALUE);
 
     public IntOption decayIntervalOption = new IntOption("decayInterval", 'v', "The interval at which decay of accuracy estimate counts occur.", 1000, 1, Integer.MAX_VALUE);
     public FloatOption decayFactorOption = new FloatOption("decayFactor", 'd', "The value of which to decay accuracy estimate counts by.", 0.1, 0.0, 1.0);
 
-    public FlagOption hillClimbOption = new FlagOption("hillCilmb", 'h', "Whether or not to enable adaptive F via hill climbing.");
+    public FlagOption hillClimbOption = new FlagOption("hillCilmb", 'h', "Whether or not to select the feature limit via hill climbing.");
     public IntOption hillClimbWindowOption = new IntOption( "hillClimbWindow", 'a', "The size of the hill climb window.", 2, 0, 10);
 
     // public FloatOption accuracyGainWeightOption = new FloatOption("accuracyGainFactor", 'g', "How much weight to put into accuracy gain for ranking features.", 0.0, 0.0, 1.0);
 
     public MultiChoiceOption rankingOption = new MultiChoiceOption(
-        "ranking", 'm', "ranking method to use", new String[]{
-            "SU","InfoGain","MeanDistance"},
-
-        new String[]{
-                "Symmetric Uncertainty",
-                "Information gain",
-                "Average Euclidean distance"
+            "rankingMethod", 'm',
+            "ranking function to use.",
+            new String[]{"SU","InfoGain","MeanDistance"},
+            new String[]{"Symmetric Uncertainty","Information gain","Average Euclidean distance"
         }, 0);
 
     // accuracy difference
-    public StringOption accuracyGainDumpOutputOption = new StringOption("accuracyGainDumpOutput",'n',"filename for output of accuracy difference as features are added to the subsets","");
-
+    public StringOption outputNameOption = new StringOption("outputName",'n',"File name for output of accuracy difference as features are removed from subsets. An empty field produces no dump file.","");
+    // buffered writer for writing out this dump file
     protected BufferedWriter bw;
 
     protected int[] topRankedFeatureIndices;
@@ -97,6 +100,7 @@ public class kNNISS extends AbstractClassifier
     protected int bestSubset = 0;
     protected int featuresCount = 0;
 
+    // counters for reselection and decay
     protected int reselectionCounter = 0;
     protected int decayCounter = 0;
     protected int largestClassIndex = 0; // starts at 0 (0 = 1 class)
@@ -154,7 +158,7 @@ public class kNNISS extends AbstractClassifier
 
 	/**
 	 * a method to train a new instance
-	 * @param inst
+	 * @param inst new instance
      */
     @Override
     public void trainOnInstanceImpl(Instance inst) 
@@ -257,6 +261,7 @@ public class kNNISS extends AbstractClassifier
         {
             if(hillClimbOption.isSet())
             {
+                // set upper and lower bound for hill climbing if it is set
                 lowerBound = bestSubset - hillClimbWindowOption.getValue();
                 if(lowerBound < 0)
                     lowerBound = 0;
@@ -266,6 +271,7 @@ public class kNNISS extends AbstractClassifier
             }
             else
             {
+                // otherwise set
                 lowerBound = 0;
                 upperBound =  featuresCount;
             }
@@ -275,9 +281,9 @@ public class kNNISS extends AbstractClassifier
             cumulativeLinearNNSearch.initialiseCumulativeSearch(inst, this.window, topRankedFeatureIndices,upperBound);
 
             // get a vote if there is enough instances in the window
-			if (this.window.numInstances() > 0)
-			{
-			    // backward elimination
+            if (this.window.numInstances() > 0)
+            {
+                // backward elimination
                 for(int z = upperBound - 1; z >= lowerBound;z--)
                 {
 
@@ -354,7 +360,7 @@ public class kNNISS extends AbstractClassifier
 
             // accuracy gain dump initialisation
             // Only dump if filename is specified
-            String fileName = accuracyGainDumpOutputOption.getValue();
+            String fileName = outputNameOption.getValue();
             if (!fileName.equals(""))
             {
                 try
@@ -389,7 +395,7 @@ public class kNNISS extends AbstractClassifier
                 }
             }
         }
-        else // if already initilised
+        else // if already initialised
         {
             // calculate accuracy gain from adding feature to subset
             // utilise accuracy difference by adding features to subset

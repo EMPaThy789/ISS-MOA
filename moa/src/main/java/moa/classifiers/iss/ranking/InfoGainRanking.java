@@ -16,23 +16,12 @@
  *    
  */
 
-package moa.classifiers.lazy.rankingfunctions;
-import java.io.StringReader;
-import java.sql.Array;
+package moa.classifiers.iss.ranking;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 
-import com.github.javacliparser.FlagOption;
-import com.github.javacliparser.FloatOption;
-import moa.classifiers.AbstractClassifier;
-import moa.classifiers.lazy.neighboursearch.*;
-import moa.core.Measurement;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
-import com.yahoo.labs.samoa.instances.InstancesHeader;
-import com.github.javacliparser.IntOption;
-import com.github.javacliparser.MultiChoiceOption;
 import moa.core.Utils;
 
 /**
@@ -56,9 +45,8 @@ public class InfoGainRanking extends RankingFunction
             attributeIndex = attribute;
 
         }
-
-
     }
+
     protected class NominalFeatureStats extends FeatureStats
     {
         // tally of number of times an instance with a value V for the attribute is of a class
@@ -113,8 +101,8 @@ public class InfoGainRanking extends RankingFunction
         {
             super(attribute);
         }
-
     }
+
     protected class NumericFeatureStats extends FeatureStats
     {
         PiD piD;
@@ -267,7 +255,7 @@ public class InfoGainRanking extends RankingFunction
             System.out.println(Arrays.toString(infogainArray));
         }
 
-        int[] rankedFeatures = sortFeatureArray(infogainArray,numberOfFeatures);
+        int[] rankedFeatures = sortFeatureArrayDesc(infogainArray,numberOfFeatures);
         if(debug) {
             System.out.println(Arrays.toString(infogainArray));
             System.out.println(Arrays.toString(rankedFeatures));
