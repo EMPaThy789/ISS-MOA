@@ -1,4 +1,4 @@
-package moa.classifiers.lazy.rankingfunctions;
+package moa.classifiers.iss.ranking;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
@@ -16,6 +16,9 @@ import moa.core.Utils;
 import moa.options.AbstractOptionHandler;
 import moa.tasks.TaskMonitor;
 
+/**
+ * PiD discritisation
+ */
 public class PiD extends AbstractOptionHandler implements NumericAttributeClassObserver {
 
 	public FloatOption alphaOption = new FloatOption(

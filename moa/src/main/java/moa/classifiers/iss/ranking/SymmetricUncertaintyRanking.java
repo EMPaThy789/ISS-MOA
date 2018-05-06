@@ -16,13 +16,9 @@
  *    
  */
 
-package moa.classifiers.lazy.rankingfunctions;
-import com.yahoo.labs.samoa.instances.Instance;
+package moa.classifiers.iss.ranking;
 import com.yahoo.labs.samoa.instances.Instances;
-import moa.core.DoubleVector;
 import moa.core.Utils;
-
-import java.util.Arrays;
 
 /**
  * SU ranking function
@@ -33,6 +29,13 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
 {
     private boolean debug = false;
 
+    /**
+     * Ranks features
+     * @param window
+     * @param previousBestFeatures
+     * @return
+     */
+    @Override
     public int[] rankFeatures(Instances window, int[] previousBestFeatures)
     {
         double[] suArray = new double[window.numAttributes()];
@@ -47,7 +50,7 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
             }
         }
 
-        int[] rankedFeatures = sortFeatureArray(suArray,numberOfFeatures);
+        int[] rankedFeatures = sortFeatureArrayDesc(suArray,numberOfFeatures);
 
         /*System.out.println(Arrays.toString(suArray));
         System.out.println(Arrays.toString(rankedFeatures));*/
@@ -56,7 +59,7 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
 
 
     /**
-     *
+     * Compute the Symmetric uncertainty for the given attribute
      * @param a attribute index
      * @return
      */
@@ -70,9 +73,8 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
         if(window.attribute(a).isNominal())
         {
             // nominal attribute
-
             NominalFeatureStats s = (NominalFeatureStats)attributeTableMap.get(a);
-
+            // compute Entropy for all instances in the window
             for(int i = 0; i < window.attribute(a).numValues();i++)
             {
                 for(int c = 0; c < window.numClasses();c++)
@@ -87,7 +89,6 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
                         }
                     }
                 }
-
                 // entropy attribute
                 entropyAttribute += RankingUtils.computeEntropyNominal(s.varTotalCount[i],s.instCount);
             }
@@ -97,21 +98,23 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
         else
         if(window.attribute(a).isNumeric())
         {
-            NumericFeatureStats s = (NumericFeatureStats)attributeTableMap.get(a);
-            // [bins][classes]
+            // numeric attribute processing
 
+            NumericFeatureStats s = (NumericFeatureStats)attributeTableMap.get(a);
+
+            // [bins][classes]
             int[][] counts = s.piD.generateContingencyTable();
 
-            //double[][] countsd = piD.generateContingencyTableDouble();
 
-
-
+            // compute for each bin
             for(int i = 0; i < counts.length;i++)
             {
                 int total = Utils.sum(counts[i]);
-
-                for (int c = 0; c < counts[i].length; c++) {
-                    if (counts[i][c] > 0) {
+                // compute entropy for each class
+                for (int c = 0; c < counts[i].length; c++)
+                {
+                    if (counts[i][c] > 0)
+                    {
                         if (s.instCount > 0)
                         {
                             entropyAfter += (((double) total / (double) s.instCount)) * RankingUtils.computeEntropyNominal(counts[i][c], total);
@@ -139,6 +142,7 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
         System.out.println("infogain " + (entropyBefore - entropyAfter));
         System.out.println("su " + 2*(entropyBefore - entropyAfter) / (entropyBefore + entropyAttribute));*/
 
+        // return SU
         return 2*(entropyBefore - entropyAfter) / (entropyBefore + entropyAttribute);
     }
 

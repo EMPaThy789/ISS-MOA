@@ -16,7 +16,7 @@
  *    
  */
 
-package moa.classifiers.lazy.rankingfunctions;
+package moa.classifiers.iss.ranking;
 import java.io.Serializable;
 import java.io.StringReader;
 import java.sql.Array;
@@ -45,6 +45,12 @@ public abstract class RankingFunction implements Serializable
     protected int classIndex = -1; // uninitialised = -1
     protected int numberOfFeatures = -1;
 
+    /**
+     * Rank
+     * @param window
+     * @param previousBestFeatures
+     * @return
+     */
     public abstract int[] rankFeatures(Instances window,  int[] previousBestFeatures);
 
     /**
@@ -62,38 +68,38 @@ public abstract class RankingFunction implements Serializable
      */
     public abstract void removeInstance(Instance inst);
 
+
     public void initialise(int numberOfFeatures, int classIndex)
     {
         this.numberOfFeatures = numberOfFeatures;
         this.classIndex = classIndex;
     }
 
-
-
-    //@TODO make better
-    // sorts Descending
-    protected int[] sortFeatureArray(double[] distances, int numFeatures)
+    /**
+     * Selects the top 'numFeatures' number of features, sorted decendingly
+     * @param scores An array containing the score of each feature. Its size should be the number of features
+     * @param numFeatures the top number of features to return (the size of the returned array)
+     * @return
+     */
+    public int[] sortFeatureArrayDesc(double[] scores, int numFeatures)
     {
         int[] returnArray = new int[numFeatures];
-
         for(int i = 0; i <  numFeatures; ++i)
         {
             returnArray[i] = -1;
         }
-		
+
         for(int i = 0; i <  numFeatures; i++)
         {
             double largest= Double.NEGATIVE_INFINITY;
             int largestIndex = -1;
-            for(int z = 0; z < distances.length;z++)
+            for(int z = 0; z < scores.length;z++)
             {
                 if(z!=classIndex)
                 {
-
-
-                    if (distances[z] > largest&& !contains(returnArray, z))
+                    if (scores[z] > largest && !contains(returnArray, z))
                     {
-                        largest = distances[z];
+                        largest = scores[z];
                         largestIndex = z;
                     }
                 }
@@ -120,5 +126,4 @@ public abstract class RankingFunction implements Serializable
         }
         return false;
     }
-
 }
