@@ -88,6 +88,9 @@ public class NaiveBayesISS extends AbstractClassifier
     protected  int[] wrongCount;
     protected double[] correctPercent;
 
+    // array to keep track of what each subset predicted
+    protected int[] subsetClassPredictions;
+
     // 0 = subset of n features,
     // n-1 = subset of only the top feature
     protected int bestSubsetIndex = -1;
@@ -96,8 +99,6 @@ public class NaiveBayesISS extends AbstractClassifier
     protected int reselectionCounter = 0;
     protected int decayCounter = 0;
 
-    // array to keep track of what each subset predicted
-    protected int[] subsetClassPredictions;
 
     protected boolean initialised = false;
 
@@ -138,6 +139,8 @@ public class NaiveBayesISS extends AbstractClassifier
         correctCount = new int[rankingWindow.numAttributes()]; //int[featuresCount];
         wrongCount = new int[rankingWindow.numAttributes()]; //int[featuresCount];
         correctPercent = new double[rankingWindow.numAttributes()]; //double[featuresCount];
+        subsetClassPredictions = new int[rankingWindow.numAttributes()];
+
 
         // Only dump if filename is specified
         String fileName = outputNameOption.getValue();
@@ -168,7 +171,6 @@ public class NaiveBayesISS extends AbstractClassifier
 
                 bw.write(featureLimitOption.getValue() + " Number of best ranked features considered");
                 bw.write(System.lineSeparator());
-
             }
             catch (IOException e)
             {

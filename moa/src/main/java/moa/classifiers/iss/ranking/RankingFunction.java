@@ -42,16 +42,62 @@ import moa.core.Utils;
  */
 public abstract class RankingFunction implements Serializable
 {
+    // the threshold of accuracy difference needed before we take action(penalise/reward)
+    protected double accuracyDifferenceConfidenceThresh = 1;
+    // whether to only penalise features or to both penalise and reward
+    protected boolean accuracyDifferencePenaliseOnly = true;
+    // the weight to give the accuracy difference penalty/reward
+    protected double accuracyDifferenceWeight = 0;
+
     protected int classIndex = -1; // uninitialised = -1
     protected int numberOfFeatures = -1;
 
+
+    public void initialise(int numberOfFeatures, int classIndex)
+    {
+        this.numberOfFeatures = numberOfFeatures;
+        this.classIndex = classIndex;
+    }
+
+
     /**
-     * Rank
+     * Ranks features
      * @param window
      * @param previousBestFeatures
      * @return
      */
-    public abstract int[] rankFeatures(Instances window,  int[] previousBestFeatures);
+    public int[] rankFeatures(Instances window, int[] previousBestFeatures)
+    {
+        double[] rankingScoreArray = computeRankingScore(window,previousBestFeatures);
+
+        int[] rankedFeatures = sortFeatureArrayDesc(rankingScoreArray,numberOfFeatures);
+
+        return rankedFeatures;
+    }
+
+    public int[] rankFeaturesAccuracyDifference(Instances window, int[] previousBestFeatures, double[] accuracyDifference)
+    {
+        double[] rankingScoreArray = computeRankingScore(window,previousBestFeatures);
+
+        double[] accuracyDiffScalar = new double[numberOfFeatures];
+
+
+        // TODO
+
+        int[] rankedFeatures = sortFeatureArrayDesc(rankingScoreArray,numberOfFeatures);
+        return rankedFeatures;
+    }
+
+    /**
+     * compute the ranking score for each feature using the given window.
+     *
+     * @param window
+     * @param previousBestFeatures
+     * @return
+     */
+    protected abstract double[] computeRankingScore(Instances window,  int[] previousBestFeatures);
+
+
 
     /**
      * adds an instance to the window
@@ -69,11 +115,6 @@ public abstract class RankingFunction implements Serializable
     public abstract void removeInstance(Instance inst);
 
 
-    public void initialise(int numberOfFeatures, int classIndex)
-    {
-        this.numberOfFeatures = numberOfFeatures;
-        this.classIndex = classIndex;
-    }
 
     /**
      * Selects the top 'numFeatures' number of features, sorted decendingly

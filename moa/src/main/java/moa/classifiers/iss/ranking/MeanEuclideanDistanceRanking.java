@@ -29,6 +29,7 @@ import com.yahoo.labs.samoa.instances.Instances;
  */
 public class MeanEuclideanDistanceRanking extends RankingFunction
 {
+    // array containg the
     Feature[][] classFeatureSums;
 
     /**
@@ -124,20 +125,15 @@ public class MeanEuclideanDistanceRanking extends RankingFunction
         }
     }
 
-    /**
-     * ranks features in the window
-     * @param window
-     * @param previousBestFeatures Array of indicies of previous ranked features (currently not used due to inconsistency)
-     * @return
-     */
-    public int[] rankFeatures(Instances window, int[] previousBestFeatures)
-    {
 
+    @Override
+    protected double[] computeRankingScore(Instances window,  int[] previousBestFeatures)
+    {
         // use EuclideanDistance class to normalise stuff
         EuclideanDistance distanceFunction = new EuclideanDistance();
         distanceFunction.setInstances(window);
 
-        if( classFeatureSums == null)
+        if(classFeatureSums == null)
             classFeatureSums = new Feature[window.numClasses()][window.numAttributes()];
 
         // using mean to determine average numeric value of class and mode to determine average nominal value of class
@@ -191,11 +187,7 @@ public class MeanEuclideanDistanceRanking extends RankingFunction
                 featureDistances[i] = -0.5;
             }
         }
-
-        // sort the features based on their distances between each class
-        int[] rankedFeatures = sortFeatureArrayDesc(featureDistances,numberOfFeatures);
-        return rankedFeatures;
+        return featureDistances;
     }
-
 
 }

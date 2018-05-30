@@ -47,6 +47,9 @@ public class InfoGainRanking extends RankingFunction
         }
     }
 
+    /**
+     * Window object containing all nominal features
+     */
     protected class NominalFeatureStats extends FeatureStats
     {
         // tally of number of times an instance with a value V for the attribute is of a class
@@ -103,6 +106,9 @@ public class InfoGainRanking extends RankingFunction
         }
     }
 
+    /**
+     * Window object containing all numeric features
+     */
     protected class NumericFeatureStats extends FeatureStats
     {
         PiD piD;
@@ -228,13 +234,8 @@ public class InfoGainRanking extends RankingFunction
 
     }
 
-    /**
-     * Ranks the actual features
-     * @param window
-     * @param previousBestFeatures
-     * @return
-     */
-    public int[] rankFeatures(Instances window, int[] previousBestFeatures)
+    @Override
+    protected double[] computeRankingScore(Instances window,  int[] previousBestFeatures)
     {
         double[] infogainArray = new double[window.numAttributes()];
         for(int a = 0;a < window.numAttributes(); a++)
@@ -248,19 +249,12 @@ public class InfoGainRanking extends RankingFunction
                     System.out.println("class value IG: " + computeInfoGain(a,window));
             }
         }
-
-
         if(debug)
         {
             System.out.println(Arrays.toString(infogainArray));
         }
+        return infogainArray;
 
-        int[] rankedFeatures = sortFeatureArrayDesc(infogainArray,numberOfFeatures);
-        if(debug) {
-            System.out.println(Arrays.toString(infogainArray));
-            System.out.println(Arrays.toString(rankedFeatures));
-        }
-        return rankedFeatures;
     }
 
     /**

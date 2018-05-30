@@ -489,6 +489,8 @@ public class kNNISS extends AbstractClassifier
     }
 
 
+
+
     @Override
     protected Measurement[] getModelMeasurementsImpl() {
         return null;

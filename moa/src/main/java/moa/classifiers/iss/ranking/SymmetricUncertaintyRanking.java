@@ -29,14 +29,10 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
 {
     private boolean debug = false;
 
-    /**
-     * Ranks features
-     * @param window
-     * @param previousBestFeatures
-     * @return
-     */
+
+
     @Override
-    public int[] rankFeatures(Instances window, int[] previousBestFeatures)
+    protected double[] computeRankingScore(Instances window,  int[] previousBestFeatures)
     {
         double[] suArray = new double[window.numAttributes()];
         for(int a = 0;a < window.numAttributes(); a++)
@@ -49,14 +45,8 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
                 //System.out.println("class value su: " + computeSU(a, window));
             }
         }
-
-        int[] rankedFeatures = sortFeatureArrayDesc(suArray,numberOfFeatures);
-
-        /*System.out.println(Arrays.toString(suArray));
-        System.out.println(Arrays.toString(rankedFeatures));*/
-        return rankedFeatures;
+        return suArray;
     }
-
 
     /**
      * Compute the Symmetric uncertainty for the given attribute
