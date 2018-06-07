@@ -28,13 +28,11 @@ import moa.classifiers.iss.ranking.InfoGainRanking;
 import moa.classifiers.iss.ranking.MeanEuclideanDistanceRanking;
 import moa.classifiers.iss.ranking.RankingFunction;
 import moa.classifiers.iss.ranking.SymmetricUncertaintyRanking;
+import moa.classifiers.iss.subsetselection.ISSAccuracyEstimate;
 import moa.core.Measurement;
 import moa.core.Utils;
 
 import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 
 /**
  * k Nearest Neighbor with Iterative Subset Selection.<p>
@@ -84,21 +82,22 @@ public class kNNISS extends AbstractClassifier
 
     protected int[] topRankedFeatureIndices;
 
+    protected ISSAccuracyEstimate issAccuracyEstimate = null;
     // correct and incorrect count for each class, used to rank subsets
-    protected  int[] correctCount;
-    protected  int[] wrongCount;
-    protected double[] correctPercent;
+//    protected  int[] correctCount;
+//    protected  int[] wrongCount;
+//    protected double[] correctPercent;
 
     // bounds for hill climbing
     protected int lowerBound = 0;
     protected int upperBound = -1;
 
     // array of prediction results for each subset size
-    protected int[] predictionOfSubset;
+    protected int[] subsetClassPredictions;
 
     // 0 = subset of n features, n-1 = subset of only the top feature
-    protected int bestSubset = 0;
-    protected int featuresCount = 0;
+    protected int bestSubsetIndex = 0;
+    protected int rankedFeaturesCount = 0;
 
     // counters for reselection and decay
     protected int reselectionCounter = 0;
@@ -108,6 +107,7 @@ public class kNNISS extends AbstractClassifier
     protected boolean initialised = false;
 
     protected RankingFunction rankingFunction = null;
+
     protected Instances window;
 
     @Override
@@ -145,12 +145,10 @@ public class kNNISS extends AbstractClassifier
 
         lowerBound = 0;
         upperBound = -1;
-        correctCount   = null;
-        wrongCount     = null;
-        correctPercent = null;
-        predictionOfSubset = null;
-        bestSubset = 0;
-        featuresCount = 0;
+        issAccuracyEstimate = null;
+        subsetClassPredictions = null;
+        bestSubsetIndex = 0;
+        rankedFeaturesCount = 0;
         reselectionCounter = 0;
         decayCounter = 0;
         largestClassIndex = 0;
@@ -181,24 +179,27 @@ public class kNNISS extends AbstractClassifier
         for(int i = upperBound - 1; i >= lowerBound;i--)
         {
             // if predicted value by this subset is equal to the true class value
-            if (predictionOfSubset[i] == (int)inst.classValue())
+            if (subsetClassPredictions[i] == (int)inst.classValue())
             {
                 // increment correct count for that subset
-                correctCount[i]++;
+                issAccuracyEstimate.incrementCorrect(i);
+//                correctCount[i]++;// TODO verify behaviour and delete
             }
             else
             {
-                wrongCount[i]++;
+                issAccuracyEstimate.incrementIncorrect(i);
+//                wrongCount[i]++;// TODO verify behaviour and delete
             }
         }
 
         // calculate accuracy for selection of best subset
-        for(int i = 0; i < correctPercent.length;i++)
-        {
-            correctPercent[i] = (double)correctCount[i]/(double)(wrongCount[i] + correctCount[i]);
-        }
+//        for(int i = 0; i < correctPercent.length;i++)
+//        {
+//            correctPercent[i] = (double)correctCount[i]/(double)(wrongCount[i] + correctCount[i]);
+//        }// TODO verify behaviour and delete
+
         // update best subset based on new accuracy values
-        bestSubset = Utils.maxIndex(correctPercent);
+        bestSubsetIndex = issAccuracyEstimate.getBestSubsetSize(); //Utils.maxIndex(correctPercent);
 
 
 
@@ -243,13 +244,16 @@ public class kNNISS extends AbstractClassifier
         // check if enough time as passed for decay
         if(decayCounter <=0)
         {
-            // decay counts based on option
-            double decayFactor = decayFactorOption.getValue();
-            for (int i = 0;i < featuresCount; i++)
-            {
-                correctCount[i] *= (1-decayFactor);
-                wrongCount[i] *= (1-decayFactor);
-            }
+
+            issAccuracyEstimate.doDecay();
+            // TODO verify behaviour and delete
+//            // decay counts based on option
+//            double decayFactor = decayFactorOption.getValue();
+//            for (int i = 0;i < rankedFeaturesCount; i++)
+//            {
+//                correctCount[i] *= (1-decayFactor);
+//                wrongCount[i] *= (1-decayFactor);
+//            }
             decayCounter = decayIntervalOption.getValue();
         }
         else
@@ -262,18 +266,18 @@ public class kNNISS extends AbstractClassifier
             if(hillClimbOption.isSet())
             {
                 // set upper and lower bound for hill climbing if it is set
-                lowerBound = bestSubset - hillClimbWindowOption.getValue();
+                lowerBound = bestSubsetIndex - hillClimbWindowOption.getValue();
                 if(lowerBound < 0)
                     lowerBound = 0;
-                upperBound = bestSubset + hillClimbWindowOption.getValue() + 1;
-                if(upperBound >= featuresCount)
-                    upperBound = featuresCount;
+                upperBound = bestSubsetIndex + hillClimbWindowOption.getValue() + 1;
+                if(upperBound >= rankedFeaturesCount)
+                    upperBound = rankedFeaturesCount;
             }
             else
             {
                 // otherwise set
                 lowerBound = 0;
-                upperBound =  featuresCount;
+                upperBound = rankedFeaturesCount;
             }
 
             // initialise search
@@ -300,14 +304,14 @@ public class kNNISS extends AbstractClassifier
                     }
 
                     // set best subset as return for prediction before re-selecting best subset
-                    if (bestSubset == z)
+                    if (bestSubsetIndex == z)
                     {
                         // save votes
                         v[Utils.maxIndex(tempVotes)] = 1;
                     }
 
                     // record prediction made by subset to use for learning via accuracy estimate
-                    predictionOfSubset[z] = Utils.maxIndex(tempVotes);
+                    subsetClassPredictions[z] = Utils.maxIndex(tempVotes);
                 }
             }
 		}
@@ -332,128 +336,66 @@ public class kNNISS extends AbstractClassifier
         {
 
             initialised = true;
-
-            // might be bug if first instance is missing attributes TODO check
-            // check if there is actually enough features
-            // if there is less features overall than F (limit specified)
-            // f = -1 is wildcard which selects all features
-            if(f >= window.numAttributes() || f == -1)
-            {
-                featuresCount = window.numAttributes() - 1; // -1 as the class attribute should not be included
-                if(featuresCount < 0)
-                    featuresCount = 0; // really should never happen as there should always be at least 1 feature
-            }
-            else
-            {
-                featuresCount = f;
-            }
-
-            bestSubset = 0;
-            // reset subset counts as subsets will be different
-            correctCount = new int[window.numAttributes()];
-            wrongCount = new int[window.numAttributes()];
-            correctPercent = new double[window.numAttributes()];
-            predictionOfSubset = new int[window.numAttributes()]; // we use one big array
+            // order matters here (probably bad programming practice xd)
+            initialiseFeatureSubsets(f);
             initialiseRankingFunction();
-            // add first instance to ranking function
+            this.bw = ISSUtils.createDumpFileWriter(outputNameOption.getValue(),window.numAttributes(), rankedFeaturesCount);
 
 
-            // accuracy gain dump initialisation
-            // Only dump if filename is specified
-            String fileName = outputNameOption.getValue();
-            if (!fileName.equals(""))
-            {
-                try
-                {
-                    File file = new File(fileName);
-
-                    // if file doesn't exists, then create it
-                    if (!file.exists())
-                    {
-                        file.createNewFile();
-                    }
-
-                    // write headers
-                    bw = new BufferedWriter(new FileWriter(file.getAbsoluteFile()));
-                    for (int i = 0; i < correctPercent.length; i++)
-                    {
-                        bw.write("Prediction Accuracy for subset of size" + (i + 1) + ",");
-                    }
-                    for (int i = 0; i < correctPercent.length; i++)
-                    {
-                        bw.write("Accuracy gain for subset of size " + (i + 1) + ",");
-                    }
-                    bw.write("Predicted number of relevant features out of total features,");
-
-                    bw.write(featureLimitOption.getValue() + " Number of best ranked features considered");
-                    bw.write(System.lineSeparator());
-
-                }
-                catch (IOException e)
-                {
-                    e.printStackTrace();
-                }
-            }
         }
         else // if already initialised
         {
             // calculate accuracy gain from adding feature to subset
             // utilise accuracy difference by adding features to subset
-            writeAG(computeAccuracyDiff(correctPercent));
+            ISSUtils.writeAG(bw, bestSubsetIndex,window.numAttributes(),issAccuracyEstimate.getAccuracyEstimates(),issAccuracyEstimate.getAccuracyDiff());
             // set best ranked features
             topRankedFeatureIndices = rankingFunction.rankFeatures(window, topRankedFeatureIndices);
         }
     }
 
-    /**
-     * writes to dump file for accuracy gain.
-     */
-    protected void writeAG(double[] accuracyArray)
-    {
-        // Write ag to file if specified
-        if (bw != null)
-        {
-            try
-            {
-                for (int i = 0; i < correctPercent.length; i++)
-                {
-                    bw.write(Double.toString(correctPercent[i]) + ",");
-
-                }
-                for (int i = 0; i < accuracyArray.length; i++)
-                {
-                    bw.write(Double.toString(accuracyArray[i]) + ",");
-                }
-                bw.write(bestSubset + " out of " + window.numAttributes());
-                bw.write(System.lineSeparator());
-                bw.flush();
-            }
-            catch (Exception e)
-            {
-                e.printStackTrace();
-            }
-        }
-    }
 
     /**
-     * Computes the prediction accuracy gained by adding the next best ranked feature F.
-     * Done by comparing the difference in prediction accuracy of the subset containing F and the subset not containing F.
-     * @param correctPercentage array of correct percentages with the best ranked feature being in index 0
-     * @return array containing the prediction accuracy percentage gained or lost by adding the feature onto the subset
+     * initialises several things:
+     * - the max size of the subset (based off f, sets it to f if f is greater than the number of features in the stream)
+     * - accuracy estimate
+     * - decay and reselection counter
+     *
+     * @param f
      */
-    protected double[] computeAccuracyDiff(double[] correctPercentage)
+    protected void initialiseFeatureSubsets(int f)
     {
-        double[] accuracyDiff = new double[correctPercentage.length];
-        for (int i = 0; i < correctPercentage.length; i++)
+
+        // might be bug if first instance is missing attributes TODO check
+        // check if there is actually enough features
+        // if there is less features overall than F (limit specified)
+        // f = -1 is wildcard which selects all features
+        if(f >= window.numAttributes() || f == -1)
         {
-            if (i == 0)
-                accuracyDiff[i] = 0;
-            else {
-                accuracyDiff[i] = correctPercentage[i] - correctPercentage[i - 1];
-            }
+            rankedFeaturesCount = window.numAttributes() - 1; // -1 as the class attribute should not be included
+            if(rankedFeaturesCount < 0)
+                rankedFeaturesCount = 0; // really should never happen as there should always be at least 1 feature
         }
-        return accuracyDiff;
+        else
+        {
+            rankedFeaturesCount = f;
+        }
+
+        bestSubsetIndex = 0;
+        // reset subset counts as subsets will be different
+        double decayFactor = decayFactorOption.getValue();
+        // initialises the accuracy estimate
+        issAccuracyEstimate = new ISSAccuracyEstimate(window.numAttributes(),decayFactor,window.classIndex());
+        subsetClassPredictions = new int[window.numAttributes()]; // we use one big array
+        decayCounter = 0;
+        reselectionCounter = 0;
     }
+
+
+
+
+
+
+
 
     /**
      * Initialises ranking function based on option set
@@ -461,7 +403,7 @@ public class kNNISS extends AbstractClassifier
     public void initialiseRankingFunction()
     {
         // initialise best features as just the first k features
-        topRankedFeatureIndices = new int[featuresCount];
+        topRankedFeatureIndices = new int[rankedFeaturesCount];
         for(int i = 0; i < topRankedFeatureIndices.length;i++)
         {
             topRankedFeatureIndices[i] = i;
@@ -485,7 +427,7 @@ public class kNNISS extends AbstractClassifier
         }
 
         // initialise ranking function
-        rankingFunction.initialise(featuresCount,window.classIndex());
+        rankingFunction.initialise(rankedFeaturesCount,window.classIndex());
     }
 
 

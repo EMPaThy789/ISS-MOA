@@ -34,6 +34,7 @@ import moa.classifiers.iss.ranking.InfoGainRanking;
 import moa.classifiers.iss.ranking.MeanEuclideanDistanceRanking;
 import moa.classifiers.iss.ranking.RankingFunction;
 import moa.classifiers.iss.ranking.SymmetricUncertaintyRanking;
+import moa.classifiers.iss.subsetselection.ISSAccuracyEstimate;
 import moa.core.*;
 
 import java.io.BufferedWriter;
@@ -83,10 +84,12 @@ public class NaiveBayesISS extends AbstractClassifier
     protected int rankedFeatureCount = 0;
     protected int[] bestFeatures;
 
+    // TODO verify behaviour and delete
     // correct and incorrect count for each class, used to rank subsets
-    protected  int[] correctCount;
-    protected  int[] wrongCount;
-    protected double[] correctPercent;
+//    protected  int[] correctCount;
+//    protected  int[] wrongCount;
+//    protected double[] correctPercent;
+    protected ISSAccuracyEstimate issAccuracyEstimate;
 
     // array to keep track of what each subset predicted
     protected int[] subsetClassPredictions;
@@ -136,47 +139,16 @@ public class NaiveBayesISS extends AbstractClassifier
         bestSubsetIndex = rankedFeatureCount - 1;
 
         // reset subset counts as subsets will be different
-        correctCount = new int[rankingWindow.numAttributes()]; //int[featuresCount];
-        wrongCount = new int[rankingWindow.numAttributes()]; //int[featuresCount];
-        correctPercent = new double[rankingWindow.numAttributes()]; //double[featuresCount];
+        issAccuracyEstimate = new ISSAccuracyEstimate(rankingWindow.numAttributes(),decayFactorOption.getValue(),rankingWindow.classIndex());
+//        correctCount = new int[rankingWindow.numAttributes()];
+//        wrongCount = new int[rankingWindow.numAttributes()];
+//        correctPercent = new double[rankingWindow.numAttributes()];
         subsetClassPredictions = new int[rankingWindow.numAttributes()];
 
-
-        // Only dump if filename is specified
-        String fileName = outputNameOption.getValue();
-        if (!fileName.equals(""))
-        {
-            try
-            {
-                File file = new File(fileName);
-
-                // if file doesnt exists, then create it
-                if (!file.exists())
-                {
-                    file.createNewFile();
-                }
+        reselectionCounter = reselectionIntervalOption.getValue();
+        decayCounter = decayIntervalOption.getValue();
 
 
-                // write headers
-                bw = new BufferedWriter(new FileWriter(file.getAbsoluteFile()));
-                for (int i = 0; i < correctPercent.length; i++)
-                {
-                    bw.write("Prediction Accuracy for subset of size" + (i + 1) + ",");
-                }
-                for (int i = 0; i < correctPercent.length; i++)
-                {
-                    bw.write("Accuracy gain for subset of size " + (i + 1) + ",");
-                }
-                bw.write("Predicted number of relevant features out of total features,");
-
-                bw.write(featureLimitOption.getValue() + " Number of best ranked features considered");
-                bw.write(System.lineSeparator());
-            }
-            catch (IOException e)
-            {
-                e.printStackTrace();
-            }
-        }
     }
 
     /**
@@ -185,18 +157,18 @@ public class NaiveBayesISS extends AbstractClassifier
     protected void selectFeatureSubset()
     {
 
-        // calculate accuracy gain from adding feature to subset
-        // utilise accuracy difference by adding features to subset
-        double[] accuracyArray = computeAccuracyDiff(correctPercent); // not currently used other than to dump
-
         // Write ag to file if specified
         if (bw != null)
         {
             try
             {
-                for (int i = 0; i < correctPercent.length; i++)
+                // calculate accuracy gain from adding feature to subset
+                // utilise accuracy difference by adding features to subset
+                double[] accuracyArray = issAccuracyEstimate.getAccuracyDiff(); // not currently used other than to dump
+                double[] accuracyEstimate = issAccuracyEstimate.getAccuracyEstimates();
+                for (int i = 0; i < accuracyEstimate.length; i++)
                 {
-                    bw.write(Double.toString(correctPercent[i]) + ",");
+                    bw.write(Double.toString(accuracyEstimate[i]) + ",");
 
                 }
                 for (int i = 0; i < accuracyArray.length; i++)
@@ -214,28 +186,9 @@ public class NaiveBayesISS extends AbstractClassifier
 
         // set best ranked features
         bestFeatures = rankingFunction.rankFeatures(rankingWindow, bestFeatures);
-        //System.out.println(Arrays.toString(bestFeatures));
     }
 
-    /**
-     * Computes the prediction accuracy gained by adding the next best ranked feature F.
-     * Done by comparing the difference in prediction accuracy of the subset containing F and the subset not containing F.
-     * @param correctPercentage array of correct percentages with the best ranked feature being in index 0
-     * @return array containing the prediction accuracy percentage gained or lost by adding the feature onto the subset
-     */
-    protected double[] computeAccuracyDiff(double[] correctPercentage)
-    {
-        double[] accuracyDiff = new double[correctPercentage.length];
-        for (int i = 0; i < correctPercentage.length; i++)
-        {
-            if (i == 0)
-                accuracyDiff[i] = 0;
-            else {
-                accuracyDiff[i] = correctPercentage[i] - correctPercentage[i - 1];
-            }
-        }
-        return accuracyDiff;
-    }
+
 
     /**
      * Initialises ranking function based on option set
@@ -340,21 +293,17 @@ public class NaiveBayesISS extends AbstractClassifier
             if(subsetClassPredictions[i] == (int)inst.classValue())
             {
                 // increment correct count for that subset
-                correctCount[i]++;
+
+                issAccuracyEstimate.incrementCorrect(i);
             }
             else
             {
-                wrongCount[i]++;
+                issAccuracyEstimate.incrementIncorrect(i);
             }
 
-            // take care of class index
-            if(i == inst.classIndex())
-                correctPercent[i] = 0;
-            else
-                correctPercent[i] = (double)correctCount[i]/(double)(wrongCount[i] + correctCount[i]);
         }
         // update best subset based on new accuracy values
-        bestSubsetIndex = Utils.maxIndex(correctPercent);
+        bestSubsetIndex = issAccuracyEstimate.getBestSubsetSize();
     }
 
 
@@ -366,8 +315,8 @@ public class NaiveBayesISS extends AbstractClassifier
         {
             initialiseFeatureSubsets(featureLimitOption.getValue());
             initialiseRankingFunction();
-            reselectionCounter = reselectionIntervalOption.getValue();
-            decayCounter = decayIntervalOption.getValue();
+            this.bw = ISSUtils.createDumpFileWriter(outputNameOption.getValue(),rankingWindow.numAttributes(),rankedFeatureCount);
+
 
             // add first instance to ranking function
             initialised = true;
@@ -390,7 +339,7 @@ public class NaiveBayesISS extends AbstractClassifier
             if(decayCounter <=0)
             {
                 // get a new ranked list of features
-                decayCounts();
+                issAccuracyEstimate.doDecay();
                 decayCounter = decayIntervalOption.getValue();
             }
             else
@@ -408,16 +357,6 @@ public class NaiveBayesISS extends AbstractClassifier
         return finalPrediction;
     }
 
-    protected void decayCounts()
-    {
-        // decay counts based on option
-        double decayFactor = decayFactorOption.getValue();
-        for (int i = 0;i < rankedFeatureCount; i++)
-        {
-            correctCount[i] *= (1-decayFactor);
-            wrongCount[i] *= (1-decayFactor);
-        }
-    }
 
     @Override
     protected Measurement[] getModelMeasurementsImpl() {
