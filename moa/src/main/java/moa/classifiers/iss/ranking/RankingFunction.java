@@ -44,6 +44,8 @@ public abstract class RankingFunction implements Serializable
 {
     // the threshold of accuracy difference needed before we take action(penalise/reward)
     protected double accuracyDifferenceConfidenceThresh = 1;
+    // Squared value to use for comparison
+    protected double accuracyDifferenceConfidenceThreshSquared = 1;
     // whether to only penalise features or to both penalise and reward
     protected boolean accuracyDifferencePenaliseOnly = true;
     // the weight to give the accuracy difference penalty/reward
@@ -53,8 +55,32 @@ public abstract class RankingFunction implements Serializable
     protected int numberOfFeatures = -1;
 
 
+    /**
+     * initialises ranking function
+     * @param numberOfFeatures
+     * @param classIndex
+     */
     public void initialise(int numberOfFeatures, int classIndex)
     {
+        this.numberOfFeatures = numberOfFeatures;
+        this.classIndex = classIndex;
+    }
+
+    /**
+     * initialises ranking function
+     * overload for when accuracy difference is enabled
+     * @param numberOfFeatures
+     * @param classIndex
+     * @param accuracyDifferenceConfidenceThresh
+     * @param accuracyDifferencePenaliseOnly
+     * @param accuracyDifferenceWeight
+     */
+    public void initialise(int numberOfFeatures, int classIndex, double accuracyDifferenceConfidenceThresh,boolean accuracyDifferencePenaliseOnly, double accuracyDifferenceWeight)
+    {
+        this.accuracyDifferenceConfidenceThresh = accuracyDifferenceConfidenceThresh;
+        this.accuracyDifferencePenaliseOnly = accuracyDifferencePenaliseOnly;
+        this.accuracyDifferenceConfidenceThreshSquared = accuracyDifferenceConfidenceThresh * accuracyDifferenceConfidenceThresh;
+        this.accuracyDifferenceWeight = accuracyDifferenceWeight;
         this.numberOfFeatures = numberOfFeatures;
         this.classIndex = classIndex;
     }
@@ -63,26 +89,44 @@ public abstract class RankingFunction implements Serializable
     /**
      * Ranks features
      * @param window
-     * @param previousBestFeatures
      * @return
      */
-    public int[] rankFeatures(Instances window, int[] previousBestFeatures)
+    public int[] rankFeatures(Instances window)
     {
-        double[] rankingScoreArray = computeRankingScore(window,previousBestFeatures);
+        double[] rankingScoreArray = computeRankingScore(window);
 
         int[] rankedFeatures = sortFeatureArrayDesc(rankingScoreArray,numberOfFeatures);
 
         return rankedFeatures;
     }
 
-    public int[] rankFeaturesAccuracyDifference(Instances window, int[] previousBestFeatures, double[] accuracyDifference)
+
+    public int[] rankFeaturesAccuracyDifference(Instances window, double[] accuracyDifferenceArray)
     {
-        double[] rankingScoreArray = computeRankingScore(window,previousBestFeatures);
+        double[] rankingScoreArray = computeRankingScore(window);
 
-        double[] accuracyDiffScalar = new double[numberOfFeatures];
+        // check that the accuracy difference actually is supplied (might not be on first instance)
+        if(accuracyDifferenceArray != null)
+        {
+            double[] accuracyDiffScalar = new double[numberOfFeatures];
+            // start at 1 to skip the subset containing a single feature
+            for(int i = 1; i < accuracyDifferenceArray.length;++i)
+            {
 
-
-        // TODO
+                // check for penalise only
+                if(!accuracyDifferencePenaliseOnly || accuracyDifferenceArray[i] < 0)
+                {
+                    double accuracyDiffSq = accuracyDifferenceArray[i] * accuracyDifferenceArray[i];
+                    // check if the difference is above the threshold
+                    // use squared here to save the computation of sqrt
+                    if(accuracyDiffSq > accuracyDifferenceConfidenceThreshSquared)
+                    {
+                        // scale the ranking score accordingly
+                        rankingScoreArray[i] *= (1 + accuracyDifferenceArray[i] * accuracyDifferenceWeight);
+                    }
+                }
+            }
+        }
 
         int[] rankedFeatures = sortFeatureArrayDesc(rankingScoreArray,numberOfFeatures);
         return rankedFeatures;
@@ -92,10 +136,9 @@ public abstract class RankingFunction implements Serializable
      * compute the ranking score for each feature using the given window.
      *
      * @param window
-     * @param previousBestFeatures
      * @return
      */
-    protected abstract double[] computeRankingScore(Instances window,  int[] previousBestFeatures);
+    protected abstract double[] computeRankingScore(Instances window);
 
 
 

@@ -19,10 +19,7 @@
  */
 package moa.classifiers.iss;
 
-import com.github.javacliparser.FloatOption;
-import com.github.javacliparser.IntOption;
-import com.github.javacliparser.MultiChoiceOption;
-import com.github.javacliparser.StringOption;
+import com.github.javacliparser.*;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 import com.yahoo.labs.samoa.instances.InstancesHeader;
@@ -36,6 +33,7 @@ import moa.classifiers.iss.ranking.RankingFunction;
 import moa.classifiers.iss.ranking.SymmetricUncertaintyRanking;
 import moa.classifiers.iss.subsetselection.ISSAccuracyEstimate;
 import moa.core.*;
+import moa.core.StringUtils;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -71,6 +69,9 @@ public class NaiveBayesISS extends AbstractClassifier
             }, 0);
 
 
+    public FloatOption accuracyDifferenceThreshOption = new FloatOption("accuracyDiffThresh", 'c', "The threshold for difference between the accuracy estimate of subset i and estimate of subset i-1, above which penalisation/reward is applied to the ranking.", 0.1, 0.0, 1.0);
+    public FloatOption accuracyDifferenceWeightOption = new FloatOption("accuracyDiffWeight", 'e', "The amount of weight to assign to the scalar for the penalisation/reward of the feature's ranking from the accuracy difference.", 0.0, 0.0, 1.0);
+    public FlagOption accuracyDifferenceOnlyPenaliseOption = new FlagOption("accuracyDiffOnlyPenalise", 'p', "Whether to both reward features which increase accuracy estimate and penalise features which decrease the accuracy estimate, or to only penalise.");
     // accuracy difference dump
     public StringOption outputNameOption = new StringOption("outputName",'n',"File name for output of accuracy difference as features are removed from subsets. An empty field produces no dump file.","");
     // buffered writer for writing out this dump file
@@ -184,8 +185,8 @@ public class NaiveBayesISS extends AbstractClassifier
             }
         }
 
-        // set best ranked features
-        bestFeatures = rankingFunction.rankFeatures(rankingWindow, bestFeatures);
+        // rank features and set best ranked features
+        bestFeatures = rankingFunction.rankFeatures(rankingWindow);
     }
 
 
@@ -217,7 +218,15 @@ public class NaiveBayesISS extends AbstractClassifier
             default:
                 break;
         }
-        rankingFunction.initialise(rankedFeatureCount,rankingWindow.classIndex());
+        // initialise ranking function
+        if(accuracyDifferenceWeightOption.getValue() > 0)
+        {
+            rankingFunction.initialise(rankedFeatureCount, rankingWindow.classIndex(),accuracyDifferenceThreshOption.getValue(),accuracyDifferenceOnlyPenaliseOption.isSet(),accuracyDifferenceWeightOption.getValue());
+        }
+        else
+        {
+            rankingFunction.initialise(rankedFeatureCount, rankingWindow.classIndex());
+        }
     }
 
 

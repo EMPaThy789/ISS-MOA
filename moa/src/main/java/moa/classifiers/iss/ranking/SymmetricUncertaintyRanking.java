@@ -32,7 +32,7 @@ public class SymmetricUncertaintyRanking extends InfoGainRanking
 
 
     @Override
-    protected double[] computeRankingScore(Instances window,  int[] previousBestFeatures)
+    protected double[] computeRankingScore(Instances window)
     {
         double[] suArray = new double[window.numAttributes()];
         for(int a = 0;a < window.numAttributes(); a++)

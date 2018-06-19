@@ -63,7 +63,7 @@ public class kNNISS extends AbstractClassifier
     public IntOption decayIntervalOption = new IntOption("decayInterval", 'v', "The interval at which decay of accuracy estimate counts occur.", 1000, 1, Integer.MAX_VALUE);
     public FloatOption decayFactorOption = new FloatOption("decayFactor", 'd', "The value of which to decay accuracy estimate counts by.", 0.1, 0.0, 1.0);
 
-    public FlagOption hillClimbOption = new FlagOption("hillCilmb", 'h', "Whether or not to select the feature limit via hill climbing.");
+    public FlagOption hillClimbOption = new FlagOption("hillClimb", 'h', "Whether or not to select the feature limit via hill climbing.");
     public IntOption hillClimbWindowOption = new IntOption( "hillClimbWindow", 'a', "The size of the hill climb window.", 2, 0, 10);
 
     // public FloatOption accuracyGainWeightOption = new FloatOption("accuracyGainFactor", 'g', "How much weight to put into accuracy gain for ranking features.", 0.0, 0.0, 1.0);
@@ -76,6 +76,12 @@ public class kNNISS extends AbstractClassifier
         }, 0);
 
     // accuracy difference
+    public FloatOption accuracyDifferenceThreshOption = new FloatOption("accuracyDiffThresh", 'c', "The threshold for difference between the accuracy estimate of subset i and estimate of subset i-1, above which penalisation/reward is applied to the ranking.", 0.1, 0.0, 1.0);
+    public FloatOption accuracyDifferenceWeightOption = new FloatOption("accuracyDiffWeight", 'e', "The amount of weight to assign to the scalar for the penalisation/reward of the feature's ranking from the accuracy difference.", 0.0, 0.0, 1.0);
+    public FlagOption accuracyDifferenceOnlyPenaliseOption = new FlagOption("accuracyDiffOnlyPenalise", 'p', "Whether to both reward features which increase accuracy estimate and penalise features which decrease the accuracy estimate, or to only penalise.");
+
+
+    // accuracy difference dump
     public StringOption outputNameOption = new StringOption("outputName",'n',"File name for output of accuracy difference as features are removed from subsets. An empty field produces no dump file.","");
     // buffered writer for writing out this dump file
     protected BufferedWriter bw;
@@ -290,9 +296,8 @@ public class kNNISS extends AbstractClassifier
                 // backward elimination
                 for(int z = upperBound - 1; z >= lowerBound;z--)
                 {
-
                     // set number of features to consider in the search
-                    cumulativeLinearNNSearch.setNumberOfActiveFeatures(z + 1);
+                    cumulativeLinearNNSearch.setNumberOfActiveFeatures(z + 1); // + 1 here as z is an index
 
                     // get knn search result
                     Instances neighbours = cumulativeLinearNNSearch.kNNSearch(inst, Math.min(kOption.getValue(), this.window.numInstances()));
@@ -349,7 +354,7 @@ public class kNNISS extends AbstractClassifier
             // utilise accuracy difference by adding features to subset
             ISSUtils.writeAG(bw, bestSubsetIndex,window.numAttributes(),issAccuracyEstimate.getAccuracyEstimates(),issAccuracyEstimate.getAccuracyDiff());
             // set best ranked features
-            topRankedFeatureIndices = rankingFunction.rankFeatures(window, topRankedFeatureIndices);
+            topRankedFeatureIndices = rankingFunction.rankFeatures(window);
         }
     }
 
@@ -427,7 +432,14 @@ public class kNNISS extends AbstractClassifier
         }
 
         // initialise ranking function
-        rankingFunction.initialise(rankedFeaturesCount,window.classIndex());
+        if(accuracyDifferenceWeightOption.getValue() > 0)
+        {
+            rankingFunction.initialise(rankedFeaturesCount, window.classIndex(),accuracyDifferenceThreshOption.getValue(),accuracyDifferenceOnlyPenaliseOption.isSet(),accuracyDifferenceWeightOption.getValue());
+        }
+        else
+        {
+            rankingFunction.initialise(rankedFeaturesCount, window.classIndex());
+        }
     }
 
 

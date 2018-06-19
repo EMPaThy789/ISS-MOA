@@ -127,7 +127,7 @@ public class MeanEuclideanDistanceRanking extends RankingFunction
 
 
     @Override
-    protected double[] computeRankingScore(Instances window,  int[] previousBestFeatures)
+    protected double[] computeRankingScore(Instances window)
     {
         // use EuclideanDistance class to normalise stuff
         EuclideanDistance distanceFunction = new EuclideanDistance();

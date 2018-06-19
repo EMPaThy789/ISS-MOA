@@ -235,7 +235,7 @@ public class InfoGainRanking extends RankingFunction
     }
 
     @Override
-    protected double[] computeRankingScore(Instances window,  int[] previousBestFeatures)
+    protected double[] computeRankingScore(Instances window)
     {
         double[] infogainArray = new double[window.numAttributes()];
         for(int a = 0;a < window.numAttributes(); a++)

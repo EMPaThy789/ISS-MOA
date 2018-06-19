@@ -104,6 +104,7 @@ public class ISSAccuracyEstimate
     /**
      * Computes the prediction accuracy gained by adding the next best ranked feature F.
      * Done by comparing the difference in prediction accuracy of the subset containing F and the subset not containing F.
+     * AccuracyDifference(i) = AccuracyEstimate(i) - AccuracyEstimate(i-1)
      * @return array containing the prediction accuracy percentage gained or lost by adding the feature onto the subset
      */
     public double[] getAccuracyDiff()
