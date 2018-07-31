@@ -88,7 +88,7 @@ public class ISSUtils
                 {
                     bw.write(Double.toString(accuracyDiffArray[i]) + ",");
                 }
-                bw.write(bestSubsetIndex + " out of " + numAttributes);
+                bw.write((bestSubsetIndex + 1)+ " out of " + numAttributes);
                 bw.write(System.lineSeparator());
                 bw.flush();
             }

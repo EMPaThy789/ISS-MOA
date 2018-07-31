@@ -77,7 +77,7 @@ public class kNNISS extends AbstractClassifier
 
     // accuracy difference
     public FloatOption accuracyDifferenceThreshOption = new FloatOption("accuracyDiffThresh", 'c', "The threshold for difference between the accuracy estimate of subset i and estimate of subset i-1, above which penalisation/reward is applied to the ranking.", 0.1, 0.0, 1.0);
-    public FloatOption accuracyDifferenceWeightOption = new FloatOption("accuracyDiffWeight", 'e', "The amount of weight to assign to the scalar for the penalisation/reward of the feature's ranking from the accuracy difference.", 0.0, 0.0, 1.0);
+    public FloatOption accuracyDifferenceWeightOption = new FloatOption("accuracyDiffWeight", 'e', "The amount of weight to assign to the scalar for the penalisation/reward of the feature's ranking from the accuracy difference.", 0.0, 0.0, 100.0);
     public FlagOption accuracyDifferenceOnlyPenaliseOption = new FlagOption("accuracyDiffOnlyPenalise", 'p', "Whether to both reward features which increase accuracy estimate and penalise features which decrease the accuracy estimate, or to only penalise.");
 
 
@@ -354,7 +354,14 @@ public class kNNISS extends AbstractClassifier
             // utilise accuracy difference by adding features to subset
             ISSUtils.writeAG(bw, bestSubsetIndex,window.numAttributes(),issAccuracyEstimate.getAccuracyEstimates(),issAccuracyEstimate.getAccuracyDiff());
             // set best ranked features
-            topRankedFeatureIndices = rankingFunction.rankFeatures(window);
+            if(accuracyDifferenceWeightOption.getValue() > 0)
+            {
+                topRankedFeatureIndices = rankingFunction.rankFeaturesAccuracyDifference(window,issAccuracyEstimate.getAccuracyDiff());
+            }
+            else
+            {
+                topRankedFeatureIndices = rankingFunction.rankFeatures(window);
+            }
         }
     }
 

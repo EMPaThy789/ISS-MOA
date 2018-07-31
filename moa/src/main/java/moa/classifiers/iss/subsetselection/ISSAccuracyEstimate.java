@@ -20,6 +20,7 @@ public class ISSAccuracyEstimate
     private int numberOfFeatures;
     private int classIndex;
 
+    // whether or not the accuracy estimates in the 'accuracyEstimate' array is up to date with the current instance
     private boolean accuracyEstimateCurrent = false;
 
 
@@ -96,7 +97,7 @@ public class ISSAccuracyEstimate
 
     public void incrementIncorrect(int subsetSizeIndex)
     {
-        correctCount[subsetSizeIndex]++;
+        incorrectCount[subsetSizeIndex]++;
         accuracyEstimateCurrent = false;
     }
 

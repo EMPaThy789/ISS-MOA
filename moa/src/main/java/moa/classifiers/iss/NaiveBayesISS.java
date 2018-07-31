@@ -58,6 +58,7 @@ public class NaiveBayesISS extends AbstractClassifier
     public IntOption featureLimitOption = new IntOption( "featureLimit", 'f', "The number of top ranked features to conduct subset selection from, which is also the subset size upper bound. '-1' is a wildcard parameter which indicates all features in the stream.", -1, -1, Integer.MAX_VALUE);
     public IntOption reselectionIntervalOption = new IntOption( "reselectionInterval", 't', "The interval between when features are re-ranked.", 1000, 1, Integer.MAX_VALUE);
     public IntOption rankingWindowSizeOption = new IntOption( "rankingWindowSize", 'w', "The size of the window used for ranking.", 1000, 1, Integer.MAX_VALUE);
+
     public FloatOption decayFactorOption = new FloatOption("decayFactor", 'd', "The value of which to decay the accuracy estimates counts by at every decay interval.", 0.1, 0.0, 1.0);
     public IntOption decayIntervalOption = new IntOption("decayInterval", 'v', "The interval at which decay happens.", 1000, 1, Integer.MAX_VALUE);
 
@@ -70,7 +71,7 @@ public class NaiveBayesISS extends AbstractClassifier
 
 
     public FloatOption accuracyDifferenceThreshOption = new FloatOption("accuracyDiffThresh", 'c', "The threshold for difference between the accuracy estimate of subset i and estimate of subset i-1, above which penalisation/reward is applied to the ranking.", 0.1, 0.0, 1.0);
-    public FloatOption accuracyDifferenceWeightOption = new FloatOption("accuracyDiffWeight", 'e', "The amount of weight to assign to the scalar for the penalisation/reward of the feature's ranking from the accuracy difference.", 0.0, 0.0, 1.0);
+    public FloatOption accuracyDifferenceWeightOption = new FloatOption("accuracyDiffWeight", 'e', "The amount of weight to assign to the scalar for the penalisation/reward of the feature's ranking from the accuracy difference.", 0.0, 0.0, 100.0);
     public FlagOption accuracyDifferenceOnlyPenaliseOption = new FlagOption("accuracyDiffOnlyPenalise", 'p', "Whether to both reward features which increase accuracy estimate and penalise features which decrease the accuracy estimate, or to only penalise.");
     // accuracy difference dump
     public StringOption outputNameOption = new StringOption("outputName",'n',"File name for output of accuracy difference as features are removed from subsets. An empty field produces no dump file.","");
@@ -148,8 +149,6 @@ public class NaiveBayesISS extends AbstractClassifier
 
         reselectionCounter = reselectionIntervalOption.getValue();
         decayCounter = decayIntervalOption.getValue();
-
-
     }
 
     /**
@@ -157,7 +156,6 @@ public class NaiveBayesISS extends AbstractClassifier
      */
     protected void selectFeatureSubset()
     {
-
         // Write ag to file if specified
         if (bw != null)
         {
@@ -186,7 +184,15 @@ public class NaiveBayesISS extends AbstractClassifier
         }
 
         // rank features and set best ranked features
-        bestFeatures = rankingFunction.rankFeatures(rankingWindow);
+
+        if(accuracyDifferenceWeightOption.getValue() > 0)
+        {
+            bestFeatures = rankingFunction.rankFeaturesAccuracyDifference(rankingWindow,issAccuracyEstimate.getAccuracyDiff());
+        }
+        else
+        {
+            bestFeatures = rankingFunction.rankFeatures(rankingWindow);
+        }
     }
 
 
