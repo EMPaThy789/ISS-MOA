@@ -184,7 +184,6 @@ public class NaiveBayesISS extends AbstractClassifier
         }
 
         // rank features and set best ranked features
-
         if(accuracyDifferenceWeightOption.getValue() > 0)
         {
             bestFeatures = rankingFunction.rankFeaturesAccuracyDifference(rankingWindow,issAccuracyEstimate.getAccuracyDiff());

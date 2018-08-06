@@ -28,7 +28,8 @@ import moa.tasks.EvaluatePrequential;
  *
  * @author Jean Paul Barddal
  */
-public class ISSExperiments {
+public class ISSExperiments
+{
 
     private static int NUM_INSTANCES_STREAM = 500000;
     private static int EVALUATION_FREQUENCY = 10000;
@@ -39,7 +40,8 @@ public class ISSExperiments {
 
         // Instantiates all classifiers and hyper-parameter combinations
         HashMap<String, Classifier> classifiers = new HashMap<>();
-        classifiers.putAll(instantiateNaiveBayes());
+        classifiers.putAll(instantiateAccuracyDifferenceClassifiers());
+//        classifiers.putAll(instantiateNaiveBayes());
 //        classifiers.putAll(instantiateKNN());
 
         // Instantiates all the synthetic experiments
@@ -109,6 +111,61 @@ public class ISSExperiments {
         writer.flush();
     }
 
+
+    private static HashMap<String, Classifier> instantiateAccuracyDifferenceClassifiers()
+    {
+
+        HashMap<String, Classifier> classifiers = new HashMap<>();
+        for(int p = 0; p < 2;++p)
+        {
+            for(int c = 0; c < 5;++c)
+            {
+                for(int w = 0; w < 6;++w)
+                {
+                    float confidence = c * 0.05f;
+                    float weight = w * 2;
+                    if(weight < 1)
+                        weight = 1;
+                    boolean penaliseOnly = false;
+                    if(p > 0)
+                        penaliseOnly = true;
+
+                            NaiveBayesISS nbISS = new NaiveBayesISS();
+                    nbISS.rankingOption.setChosenIndex(0);
+                    nbISS.rankingWindowSizeOption.setValue(1000);
+                    nbISS.reselectionIntervalOption.setValue(500);
+                    nbISS.decayIntervalOption.setValue(1000);
+                    nbISS.decayFactorOption.setValue(0.1);
+                    nbISS.featureLimitOption.setValue(-1);
+                    nbISS.accuracyDifferenceOnlyPenaliseOption.setValue(penaliseOnly);
+                    nbISS.accuracyDifferenceThreshOption.setValue(confidence);
+                    nbISS.accuracyDifferenceWeightOption.setValue(weight);
+                    classifiers.put("NB-ISS-AD-SU (" +
+                            " AD Confidence: " + nbISS.accuracyDifferenceThreshOption.getValue() + " AD Weight: " + nbISS.accuracyDifferenceWeightOption.getValue() + " AD penaliseOnly: " + nbISS.accuracyDifferenceOnlyPenaliseOption.isSet() +
+                            " window: " + nbISS.rankingWindowSizeOption.getValue() + " reselectionInterval:  " + nbISS.reselectionIntervalOption.getValue() + " decay: " + nbISS.decayFactorOption.getValue() + " decayInterval: " + nbISS.decayIntervalOption.getValue(), nbISS);
+
+                    kNNISS kNNISSClassifier = new kNNISS();
+                    kNNISSClassifier.kOption.setValue(10);
+                    kNNISSClassifier.rankingOption.setChosenIndex(0);
+                    kNNISSClassifier.windowSizeOption.setValue(1000);
+                    kNNISSClassifier.reselectionIntervalOption.setValue(500);
+                    kNNISSClassifier.decayIntervalOption.setValue(1000);
+                    kNNISSClassifier.decayFactorOption.setValue(0.1);
+                    kNNISSClassifier.featureLimitOption.setValue(-1);
+                    kNNISSClassifier.hillClimbOption.setValue(true);
+                    kNNISSClassifier.hillClimbWindowOption.setValue(4);
+                    kNNISSClassifier.accuracyDifferenceOnlyPenaliseOption.setValue(penaliseOnly);
+                    kNNISSClassifier.accuracyDifferenceThreshOption.setValue(confidence);
+                    kNNISSClassifier.accuracyDifferenceWeightOption.setValue(weight);
+                    classifiers.put("kNN-ISS-HC-AD-SU (" +
+                            " AD Confidence: " + kNNISSClassifier.accuracyDifferenceThreshOption.getValue() + " AD Weight: " + kNNISSClassifier.accuracyDifferenceWeightOption.getValue() + " AD penaliseOnly: " + kNNISSClassifier.accuracyDifferenceOnlyPenaliseOption.isSet() +
+                            " window: " + kNNISSClassifier.windowSizeOption.getValue() + " reselectionInterval:  " + kNNISSClassifier.reselectionIntervalOption.getValue() + " decay: " + kNNISSClassifier.decayFactorOption.getValue() + " decayInterval: " + kNNISSClassifier.decayIntervalOption.getValue() + " hillClimbWindow: " + kNNISSClassifier.hillClimbWindowOption.getValue(), kNNISSClassifier);
+                }
+            }
+        }
+        return classifiers;
+    }
+
     private static HashMap<String, Classifier> instantiateNaiveBayes()
     {
         HashMap<String, Classifier> classifiers = new HashMap<>();
@@ -142,7 +199,8 @@ public class ISSExperiments {
                 }
             }
 
-            for (int decayIntervalI = 1; decayIntervalI <= 3; decayIntervalI++) {
+            for (int decayIntervalI = 1; decayIntervalI <= 3; decayIntervalI++)
+            {
                 for (int decayI = 1; decayI < 4; decayI++)
                 {
 
